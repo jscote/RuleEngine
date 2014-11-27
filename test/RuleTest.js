@@ -10,6 +10,7 @@ var p = require('path');
 //var Specification = require(p.resolve(__dirname + '../../../server/Predicate/Specification/')).Specification;
 var Rule = require(p.resolve(__dirname + '/../Rule')).Rule;
 var RuleCondition = require(p.resolve(__dirname + '/../Rule')).RuleCondition;
+var EvaluationContext = require(p.resolve(__dirname + '/../Rule')).EvaluationContext;
 
 module.exports = {
     setUp: function (callback) {
@@ -22,9 +23,7 @@ module.exports = {
     testRuleMustHaveANameAndARuleCondition: function (test) {
 
         test.doesNotThrow(function () {
-            var r = new Rule({ruleName: 'HasAName', condition: new RuleCondition(function (item) {
-                return item.value;
-            })});
+            var r = new Rule({ruleName: 'HasAName', condition: new RuleCondition("return true;")});
         });
 
         test.done();
@@ -39,7 +38,7 @@ module.exports = {
     },
     testRuleMustHaveANameAndARuleConditionThatIsNotAFunction: function (test) {
 
-        test.throws(function () {
+        test.doesNotThrow(function () {
             var r = new Rule({ruleName: 'HasAName', condition: new RuleCondition('')});
         });
 
@@ -47,19 +46,15 @@ module.exports = {
     },
     testRuleConditionMustHaveAPredicate: function (test) {
         test.doesNotThrow(function () {
-            var c = new RuleCondition(function (item) {
-                return item.value;
-            });
+            var c = new RuleCondition('');
         });
 
         test.done();
     },
     testRuleConditionMustHaveAPredicateThatIsEvaluated: function (test) {
-        var c = new RuleCondition(function (item) {
-            return item.value;
-        });
+        var c = new RuleCondition('isTrue = fact.value;');
 
-        c.evaluateCondition({value: true}).then(function(result){
+        c.evaluateCondition({},{value: true}).then(function(result){
             test.ok(result);
             test.done();
         });
@@ -73,178 +68,76 @@ module.exports = {
             this.gender = gender;
         }
 
-        var genderSpec = new PredicateSpecification(function (item) {
-            return item.gender == 'M';
-        }, Person);
+        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40");
 
-        var ageGreaterThanOrEqual20Spec = new PredicateSpecification(function (item) {
-            return item.age >= 20;
-        }, Person);
-
-        var ageLessThanOrEqual40Spec = new PredicateSpecification(function (item) {
-            return item.age <= 40;
-        }, Person);
-
-        var ageBetween20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageGreaterThanOrEqual20Spec, ageLessThanOrEqual40Spec).isSatisfiedBy(item);
-        }, Person);
-
-
-        var femaleBetweenAge20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageBetween20And40Spec, Specification.not(genderSpec)).isSatisfiedBy(item);
-        }, Person);
-
-        var c = new RuleCondition(femaleBetweenAge20And40Spec);
-
-        c.evaluateCondition(new Person(30, 'F')).then(function(result) {
+        c.evaluateCondition({}, new Person(30, 'F')).then(function(result) {
             test.ok(result);
             test.done();
         });
     },
-    testRuleWithCombineSpecificationAreSatisfied: function (test) {
+    testRuleConditionWithCombineSpecificationAreNotSatisfied: function (test) {
 
         var Person = function (age, gender) {
             this.age = age;
             this.gender = gender;
-        }
+        };
 
-        var genderSpec = new PredicateSpecification(function (item) {
-            return item.gender == 'M';
-        }, Person);
+        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40");
 
-        var ageGreaterThanOrEqual20Spec = new PredicateSpecification(function (item) {
-            return item.age >= 20;
-        }, Person);
-
-        var ageLessThanOrEqual40Spec = new PredicateSpecification(function (item) {
-            return item.age <= 40;
-        }, Person);
-
-        var ageBetween20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageGreaterThanOrEqual20Spec, ageLessThanOrEqual40Spec).isSatisfiedBy(item);
-        }, Person);
-
-
-        var femaleBetweenAge20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageBetween20And40Spec, Specification.not(genderSpec)).isSatisfiedBy(item);
-        }, Person);
-
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition(femaleBetweenAge20And40Spec)});
-
-        r.evaluateCondition(new Person(30, 'F')).then(function(result) {
-            test.ok(result);
+        c.evaluateCondition({}, new Person(30, 'M')).then(function(result) {
+            test.ok(!result);
             test.done();
         });
-
-
     },
     testRuleWithCombineSpecificationAreNotMarkedAsEvaluatedPriorToEvaluation: function (test) {
 
         var Person = function (age, gender) {
             this.age = age;
             this.gender = gender;
-        }
-
-        var genderSpec = new PredicateSpecification(function (item) {
-            return item.gender == 'M';
-        }, Person);
-
-        var ageGreaterThanOrEqual20Spec = new PredicateSpecification(function (item) {
-            return item.age >= 20;
-        }, Person);
-
-        var ageLessThanOrEqual40Spec = new PredicateSpecification(function (item) {
-            return item.age <= 40;
-        }, Person);
-
-        var ageBetween20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageGreaterThanOrEqual20Spec, ageLessThanOrEqual40Spec).isSatisfiedBy(item);
-        }, Person);
+        };
 
 
-        var femaleBetweenAge20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageBetween20And40Spec, Specification.not(genderSpec)).isSatisfiedBy(item);
-        }, Person);
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition(femaleBetweenAge20And40Spec)});
+        var evalCtx = new EvaluationContext();
 
-        test.ok(!r.isEvaluated, 'is not evaluated yet')
+        test.ok(!evalCtx.isEvaluated(r.ruleName), 'is not evaluated yet');
 
-        r.evaluateCondition(new Person(30, 'F')).then(function(result){
-            test.ok(r.isEvaluated, 'has been evaluated')
+        r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
+            test.ok(evalCtx.ruleStates[r.ruleName], 'has been evaluated');
+            test.ok(result);
             test.done();
         });
 
     },
-    testRuleThrowsWhenCheckingIsTruePriorToEvaluation: function (test) {
+    /*testRuleThrowsWhenCheckingIsTruePriorToEvaluation: function (test) {
 
         var Person = function (age, gender) {
             this.age = age;
             this.gender = gender;
-        }
-
-        var genderSpec = new PredicateSpecification(function (item) {
-            return item.gender == 'M';
-        }, Person);
-
-        var ageGreaterThanOrEqual20Spec = new PredicateSpecification(function (item) {
-            return item.age >= 20;
-        }, Person);
-
-        var ageLessThanOrEqual40Spec = new PredicateSpecification(function (item) {
-            return item.age <= 40;
-        }, Person);
-
-        var ageBetween20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageGreaterThanOrEqual20Spec, ageLessThanOrEqual40Spec).isSatisfiedBy(item);
-        }, Person);
-
-
-        var femaleBetweenAge20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageBetween20And40Spec, Specification.not(genderSpec)).isSatisfiedBy(item);
-        }, Person);
+        };
 
         test.throws(function(){
-            var r = new Rule({ruleName: 'test', condition: new RuleCondition(femaleBetweenAge20And40Spec)});
-            r.isTrue;
+            var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
+            r.evaluationContext.ruleStates[r.ruleName].isTrue;
         });
         test.done();
-    },
+    },*/
     testRuleDoesNotThrowWhenIsTrueIsCheckedAfterEvaluation: function (test) {
 
         var Person = function (age, gender) {
             this.age = age;
             this.gender = gender;
-        }
+        };
 
-        var genderSpec = new PredicateSpecification(function (item) {
-            return item.gender == 'M';
-        }, Person);
 
-        var ageGreaterThanOrEqual20Spec = new PredicateSpecification(function (item) {
-            return item.age >= 20;
-        }, Person);
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
 
-        var ageLessThanOrEqual40Spec = new PredicateSpecification(function (item) {
-            return item.age <= 40;
-        }, Person);
+        var evalCtx = new EvaluationContext();
 
-        var ageBetween20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageGreaterThanOrEqual20Spec, ageLessThanOrEqual40Spec).isSatisfiedBy(item);
-        }, Person);
-
-        var femaleBetweenAge20And40Spec = new PredicateSpecification(function (item) {
-            return Specification.and(ageBetween20And40Spec, Specification.not(genderSpec)).isSatisfiedBy(item);
-        }, Person);
-
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition(femaleBetweenAge20And40Spec)});
-
-        test.throws(function(){
-            var t = r.isTrue;
-        });
-
-        r.evaluateCondition(new Person(30, 'F')).then(function(result){
-            test.ok(r.isTrue);
+        r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
+            test.ok(evalCtx.ruleStates[r.ruleName].isTrue);
+            test.ok(result);
             test.done();
         });
 

@@ -1,19 +1,31 @@
-﻿(function (util, _, q) {
+﻿(function (util, _, q, vm) {
 
     'use strict';
 
-    var Rule = function Rule(options) {
-        options = options || {};
+    var EvaluationContext = function() {
+        this.ruleStates = {};
+    };
 
-        if (!options.ruleName) throw Error("A ruleName must be specified");
+    EvaluationContext.prototype.isEvaluated = function(ruleName) {
+        if(_.isUndefined(this.ruleStates[ruleName])) return false;
 
+        return this.ruleStates[ruleName].isEvaluated;
+    };
+
+    EvaluationContext.prototype.isTrue = function(ruleName) {
+        if(_.isUndefined(this.ruleStates[ruleName])) throw Error("Rule state is unavailable.");
+
+        return this.ruleStates[ruleName].isTrue;
+    };
+
+    EvaluationContext.prototype.setIsTrue = function(ruleName, isTrue) {
+        if(_.isUndefined(this.ruleStates[ruleName])) this.ruleStates[ruleName] = new RuleState();
+        this.ruleStates[ruleName] = isTrue;
+    };
+
+    var RuleState = function() {
         var _isTrue = false;
         var self = this;
-        Object.defineProperty(this, "ruleName", {value: options.ruleName, enumerable: true});
-        Object.defineProperty(this, "ruleFriendlyName", {
-            value: options.ruleFriendlyName || options.ruleName,
-            enumerable: true
-        });
         Object.defineProperty(this, "isEvaluated", {value: false, writable: true, enumerable: true});
         Object.defineProperty(this, "isTrue", {
             get: function () {
@@ -27,8 +39,23 @@
                 self.isEvaluated = true;
             }
         });
+    };
 
-        var _evaluationContext;
+    var Rule = function Rule(options) {
+        options = options || {};
+
+        if (!options.ruleName) throw Error("A ruleName must be specified");
+
+
+        var self = this;
+        Object.defineProperty(this, "ruleName", {value: options.ruleName, enumerable: true});
+        Object.defineProperty(this, "ruleFriendlyName", {
+            value: options.ruleFriendlyName || options.ruleName,
+            enumerable: true
+        });
+
+
+        /*var _evaluationContext;
         Object.defineProperty(this, "evaluationContext", {
             get: function () {
                 return _evaluationContext;
@@ -41,6 +68,11 @@
                 _evaluationContext = value;
             }, enumerable: true
         });
+
+        this.evaluationContext = {};
+        this.evaluationContext.ruleStates = {};
+        this.evaluationContext.ruleStates[options.ruleName] = new RuleState();*/
+
 
         var _condition = null;
         Object.defineProperty(this, "condition", {
@@ -62,32 +94,26 @@
 
         if (options.condition === null)
         //set a condition that returns true all the time
-            options.condition = new RuleCondition(new Predicate(function () {
-                return true;
-            }));
+            options.condition = new RuleCondition("isTrue = true");
 
         this.condition = options.condition;
 
         return this;
     };
 
-    Rule.prototype.evaluateCondition = function (evaluationContext) {
-
-        if (!_.isUndefined(evaluationContext)) {
-            this.evaluationContext = evaluationContext;
-        }
+    Rule.prototype.evaluateCondition = function (evaluationContext, fact) {
 
         var self = this;
         var dfd = q.defer();
 
         if (this.condition) {
-            this.condition.evaluateCondition(this.evaluationContext).then(function (result) {
-                self.isTrue = result;
-                dfd.resolve({isTrue: self.isTrue, rule: self});
+            this.condition.evaluateCondition(evaluationContext, fact).then(function (result) {
+                evaluationContext.setIsTrue(self.ruleName, result);
+                dfd.resolve({isTrue: result, ruleState : evaluationContext.ruleStates[self.ruleName]});
             });
         } else {
-            this.isTrue = true;
-            dfd.resolve({isTrue: self.isTrue, rule: self});
+            evaluationContext.ruleStates[self.ruleName].isTrue = true;
+            dfd.resolve({isTrue: true, ruleState : evaluationContext.ruleStates[self.ruleName]});
         }
 
         return dfd.promise;
@@ -112,27 +138,42 @@
     util.inherits(BusinessRule, Rule);
 
 
-    var RuleCondition = function RuleCondition(predicate, type) {
+    var RuleCondition = function RuleCondition(predicate) {
 
-        if (predicate instanceof PredicateSpecification) {
-            predicate = predicate.predicate;
-        }
+        var _predicate;
+        Object.defineProperty(this, "predicate", {
+            get : function (){
+                return _predicate;
+            },
+            set: function(value) {
+                if(_.isUndefined(value) || _.isNull(value)) {
+                    throw Error('A predicate must be provided');
+                }
+                _predicate = value;
+            }
+        });
 
-        //PredicateSpecification.call(this, predicate, type);
-        Object.defineProperty(this, "evaluationContext", {writable: true});
+        this.predicate = predicate;
 
         return this;
     };
 
     //util.inherits(RuleCondition, PredicateSpecification);
 
-    RuleCondition.prototype.evaluateCondition = function (evaluationContext) {
+    RuleCondition.prototype.evaluateCondition = function (evaluationContext, fact) {
 
-        if (!_.isUndefined(evaluationContext)) {
-            this.evaluationContext = evaluationContext;
-        }
+        var self = this;
 
-        return this.isSatisfiedBy(this.evaluationContext);
+        var dfd = q.defer();
+        process.nextTick(function(){
+            var sandbox = {fact : fact, isTrue: false, evaluationContext: evaluationContext};
+            var context = vm.createContext(sandbox);
+            vm.runInContext(self.predicate, context);
+            dfd.resolve(context.isTrue);
+        });
+
+
+        return dfd.promise;
     };
 
     var BusinessAction = function BusinessAction(options) {
@@ -191,6 +232,7 @@
     exports.BusinessRule = BusinessRule;
     exports.RuleCondition = RuleCondition;
     exports.BusinessAction = BusinessAction;
+    exports.EvaluationContext = EvaluationContext;
 
 })(
     require('util'),
