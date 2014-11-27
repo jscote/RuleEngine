@@ -41,6 +41,10 @@
         });
     };
 
+    //Rule and Rule Condition are not combined in one object only for the following reasons:
+    //- It is possible to derive the Rule object and create a new type that handles condition differently
+    //- It is possible to implement a different type of RuleCondition
+    //- It is possible to derive Rule object and and rule actions.
     var Rule = function Rule(options) {
         options = options || {};
 
