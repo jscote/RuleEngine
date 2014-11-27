@@ -20,7 +20,7 @@
 
     EvaluationContext.prototype.setIsTrue = function(ruleName, isTrue) {
         if(_.isUndefined(this.ruleStates[ruleName])) this.ruleStates[ruleName] = new RuleState();
-        this.ruleStates[ruleName] = isTrue;
+        this.ruleStates[ruleName].isTrue = isTrue;
     };
 
     var RuleState = function() {
@@ -46,33 +46,11 @@
 
         if (!options.ruleName) throw Error("A ruleName must be specified");
 
-
-        var self = this;
         Object.defineProperty(this, "ruleName", {value: options.ruleName, enumerable: true});
         Object.defineProperty(this, "ruleFriendlyName", {
             value: options.ruleFriendlyName || options.ruleName,
             enumerable: true
         });
-
-
-        /*var _evaluationContext;
-        Object.defineProperty(this, "evaluationContext", {
-            get: function () {
-                return _evaluationContext;
-            },
-            set: function (value) {
-                if (_condition) {
-                    _condition.evaluationContext = value;
-                }
-
-                _evaluationContext = value;
-            }, enumerable: true
-        });
-
-        this.evaluationContext = {};
-        this.evaluationContext.ruleStates = {};
-        this.evaluationContext.ruleStates[options.ruleName] = new RuleState();*/
-
 
         var _condition = null;
         Object.defineProperty(this, "condition", {
@@ -119,25 +97,6 @@
         return dfd.promise;
     };
 
-    var BusinessRule = function BusinessRule(options) {
-        Rule.call(this, options);
-
-        Object.defineProperty(this, "businessAction", {
-            writable: true
-        });
-
-        this.businessAction = new BusinessAction({
-            evaluationContext: this.evaluationContext,
-            action: options.action,
-            executionContext: options.executionContext
-        });
-
-        return this;
-    };
-
-    util.inherits(BusinessRule, Rule);
-
-
     var RuleCondition = function RuleCondition(predicate) {
 
         var _predicate;
@@ -158,8 +117,6 @@
         return this;
     };
 
-    //util.inherits(RuleCondition, PredicateSpecification);
-
     RuleCondition.prototype.evaluateCondition = function (evaluationContext, fact) {
 
         var self = this;
@@ -176,62 +133,9 @@
         return dfd.promise;
     };
 
-    var BusinessAction = function BusinessAction(options) {
-        options = options || {};
-
-        var _action;
-        Object.defineProperty(this, "action", {
-            get: function () {
-                return _action;
-            },
-            set: function (value) {
-                if (value) {
-                    if (!(value instanceof Function)) {
-                        throw Error("Action should be a function.");
-                    }
-                    _action = value;
-                }
-            }
-        });
-
-        this.action = options.action || null;
-
-        var _evaluationContext;
-        Object.defineProperty(this, "evaluationContext", {
-            get: function () {
-                return _evaluationContext;
-            },
-            set: function (value) {
-                _evaluationContext = value;
-            }
-        });
-
-        this.evaluationContext = options.evaluationContext || null;
-
-        var _executionContext;
-        Object.defineProperty(this, "executionContext", {
-            get: function () {
-                return _executionContext;
-            },
-            set: function (value) {
-                _executionContext = value;
-            }
-        });
-
-        this.executionContext = options.executionContext || null;
-    };
-
-    BusinessAction.prototype.execute = function () {
-        if (this.action) {
-            this.action(this.evaluationContext, this.executionContext);
-        }
-    };
-
 //Exports
     exports.Rule = Rule;
-    exports.BusinessRule = BusinessRule;
     exports.RuleCondition = RuleCondition;
-    exports.BusinessAction = BusinessAction;
     exports.EvaluationContext = EvaluationContext;
 
 })(

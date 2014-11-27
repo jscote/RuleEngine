@@ -104,7 +104,7 @@ module.exports = {
         test.ok(!evalCtx.isEvaluated(r.ruleName), 'is not evaluated yet');
 
         r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
-            test.ok(evalCtx.ruleStates[r.ruleName], 'has been evaluated');
+            test.ok(evalCtx.isEvaluated(r.ruleName), 'has been evaluated');
             test.ok(result);
             test.done();
         });
@@ -136,7 +136,7 @@ module.exports = {
         var evalCtx = new EvaluationContext();
 
         r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
-            test.ok(evalCtx.ruleStates[r.ruleName].isTrue);
+            test.ok(evalCtx.isTrue(r.ruleName));
             test.ok(result);
             test.done();
         });
