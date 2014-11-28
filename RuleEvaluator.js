@@ -1,4 +1,16 @@
-﻿(function (util, Rule, BusinessRule, EventEmitter, q) {
+﻿//TODO : Revise RuleEvaluator/RuleSetEvaluator => maybe only one is needed, especially with the concept of RuleEngine
+//TODO : Refactor Evaluate method on RuleEvaluator to loop on promises => consider using q.all(an array built from all rules calling evaluate as a promise for each rule).then(result)
+//TODO : Change haltOnFirstInvalidRule to two properties: haltOnFirstTrueRule and haltOnFirstFalseRule, setting one should set the other one off
+//TODO : Consider introducing a RuleEngine class that coordinate the evaluation of all rule sets.
+//TODO : Implementation of RuleEvaluator should initialize EvaluationContext and all rules in them (this may not be necessary as the evaluation context exposes methods to get IsEvaluated and IsTrue)
+//TODO : Loading Rules from RuleSet with a RuleSetLoader/RuleSetResolver and cache (similar to processors)
+//TODO : Integrate RuleEngine with Condition on Processors
+//TODO : Flatten the fact to pass it in the evaluation context when coming from processors => processor has context and context has data. The data part should become part of the fact
+//TODO : Change BrokenRule Concept to be only for containing rules that have exceptions, potentially moving that as well to the evaluation context.
+//TODO : Consider which "require" modules should be passed to the vm.context so that condition can be evaluated easily. JSONPath might be an interesting one, potentially inject a module that does nothing for now but that can be replaced by whatever we want at runtime (such as persistence)
+//TODO : The RuleEngine evaluate method should simply take a Fact as a parameter. The whole evaluation context can be hidden and created within the evaluate method and pass across.
+
+(function (util, Rule, EventEmitter, q) {
 
     'use strict';
 
@@ -9,16 +21,19 @@
 
         options = options || {};
 
-        Object.defineProperty(this, "rules", { writable: true, value: {} });
-        Object.defineProperty(this, "hasExceptions", { writable: true, value: false });
-        Object.defineProperty(this, "haltOnException", { writable: true, value: options.haltOnException || true });
-        Object.defineProperty(this, "haltOnFirstInvalidRule", { writable: true, value: options.haltOnFirstInvalidRule || false });
-        Object.defineProperty(this, "exceptionMessages", { writable: true, value: [] });
-        Object.defineProperty(this, "brokenRules", { writable: true, value: [] });
+        Object.defineProperty(this, "rules", {writable: true, value: {}});
+        Object.defineProperty(this, "hasExceptions", {writable: true, value: false});
+        Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
+        Object.defineProperty(this, "haltOnFirstInvalidRule", {
+            writable: true,
+            value: options.haltOnFirstInvalidRule || false
+        });
+        Object.defineProperty(this, "exceptionMessages", {writable: true, value: []});
+        Object.defineProperty(this, "brokenRules", {writable: true, value: []});
 
-        Object.defineProperty(this, "isValid", { writable: true, value: false, configurable: true });
-        Object.defineProperty(this, "isValidated", { writable: true, value: false });
-        Object.defineProperty(this, "isValidating", { writable: true, value: false });
+        Object.defineProperty(this, "isValid", {writable: true, value: false, configurable: true});
+        Object.defineProperty(this, "isValidated", {writable: true, value: false});
+        Object.defineProperty(this, "isValidating", {writable: true, value: false});
 
         this.on("ruleEvaluated", function (rule) {
             console.log("onRuleEvaluated with " + rule.isTrue);
@@ -101,9 +116,9 @@
 
                                 self.emit('ruleEvaluated', result.rule);
                             }).fail(function (reason) {
-                                    self.hasExceptions = true;
-                                    self.exceptionMessages.push(reason);
-                                });
+                                self.hasExceptions = true;
+                                self.exceptionMessages.push(reason);
+                            });
 
 
                         }
@@ -178,104 +193,6 @@
         return dfd.promise;
     };
 
-
-    var BusinessRuleEvaluator = function BusinessRuleEvaluator(options) {
-        options = options || {};
-        RuleEvaluator.call(this, options);
-
-        Object.defineProperty(this, "executeActionsOnCompletion", { writable: true, value: options.executeActionsOnCompletion === undefined ? false : options.executeActionsOnCompletion });
-        Object.defineProperty(this, "executeActionsOnCompletionOnlyIfNoError", { writable: true, value: options.executeActionsOnCompletionOnlyIfNoError === undefined ? true : options.executeActionsOnCompletionOnlyIfNoError });
-        this._deferredActions = [];
-
-        this.on("evaluationStarting", function () {
-            this._deferredActions = [];
-        }.bind(this));
-
-        this.on("allRulesEvaluated", function (evaluator) {
-            if (this.executeActionsOnCompletion) {
-                if ((this.executeActionsOnCompletionOnlyIfNoError && evaluator.isValid) || !this.executeActionsOnCompletionOnlyIfNoError) {
-                    for (var i = 0; i < this._deferredActions.length; i++) {
-                        this._deferredActions[i].execute();
-                    }
-                }
-            }
-        }.bind(this));
-
-        return this;
-    };
-
-    util.inherits(BusinessRuleEvaluator, RuleEvaluator);
-
-    BusinessRuleEvaluator.prototype.evaluateItem = function (rule) {
-        if (!rule) {
-            this.emit('error', "The rule should be specified for evaluation.");
-        }
-
-        if (!(rule instanceof Rule)) {
-            this.emit('error', "The rule to evaluate is not a rule object.");
-        }
-
-        var result = rule.evaluateCondition();
-
-        if (result) {
-            if (rule.businessAction) {
-                if (this.executeActionsOnCompletion) {
-                    this._deferredActions.push(rule.businessAction);
-                } else {
-                    rule.businessAction.execute();
-                }
-            }
-        }
-
-        return result;
-    };
-
-    BusinessRuleEvaluator.prototype.addRule = function (rule) {
-
-        var dfd = q.defer();
-
-        if (!rule) {
-            this.emit('ruleError', "The rule should be specified for evaluation.");
-            dfd.reject("The rule should be specified for evaluation.");
-
-        } else {
-
-            if (!(rule instanceof BusinessRule)) {
-                this.emit('ruleError', "The rule to evaluate is not a rule object.");
-                dfd.reject("The rule to evaluate is not a rule object.");
-            } else {
-
-                process.nextTick(function () {
-
-                    if (this.rules) {
-                        this.rules[rule.ruleName] = rule;
-
-                        rule.evaluationContext = this.evaluationContext;
-
-                        if (rule.businessAction) {
-                            rule.businessAction.evaluationContext = this.evaluationContext;
-                        }
-
-                        if (rule.condition.evaluationContext) {
-                            rule.condition.evaluationContext.rules = this.rules;
-                        }
-
-                        dfd.resolve(rule);
-                        this.emit('ruleAdded', rule);
-
-                    } else {
-                        this.emit('error', "The rule list is not initialized.");
-                        dfd.reject("The rule list is not initialized.");
-                    }
-
-                }.bind(this));
-
-            }
-        }
-        return dfd.promise;
-
-    };
-
     var RuleSetEvaluator = function RuleSetEvaluator(options) {
         options = options || {};
         RuleEvaluator.call(this, options);
@@ -329,13 +246,16 @@
     util.inherits(RuleSetEvaluator, RuleEvaluator);
 
     var RuleSet = function RuleSet(options) {
-        options = options || { };
+        options = options || {};
 
-        Object.defineProperty(this, "rules", { writable: true, value: {} });
-        Object.defineProperty(this, "isValid", { writable: true, value: false });
-        Object.defineProperty(this, "ruleSetName", { writable: true, value: options.ruleSetName || 'unknown' });
-        Object.defineProperty(this, "haltOnException", { writable: true, value: options.haltOnException || true });
-        Object.defineProperty(this, "haltOnFirstInvalidRule", { writable: true, value: options.haltOnFirstInvalidRule || false });
+        Object.defineProperty(this, "rules", {writable: true, value: {}});
+        Object.defineProperty(this, "isValid", {writable: true, value: false});
+        Object.defineProperty(this, "ruleSetName", {writable: true, value: options.ruleSetName || 'unknown'});
+        Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
+        Object.defineProperty(this, "haltOnFirstInvalidRule", {
+            writable: true,
+            value: options.haltOnFirstInvalidRule || false
+        });
 
         var _evaluationContext = null;
         Object.defineProperty(this, "evaluationContext", {
@@ -387,16 +307,156 @@
         async_addRule(rule, addRuleCompleted);
     };
 
+
+    function RuleSetLoader() {
+
+    }
+
+    RuleSetLoader.prototype.load = function (ruleSetName) {
+
+    };
+
+    var cache = {};
+
+    function RuleSetCache() {
+
+    }
+
+    RuleSetCache.add = function (ruleSetName, ruleSetDefinition) {
+        cache[ruleSetName] = ruleSetDefinition;
+    };
+
+    RuleSetCache.get = function (ruleSetName) {
+        if (!_.isUndefined(cache[ruleSetName])) return cache[ruleSetName];
+
+        return null;
+    };
+
+    function RuleSetResolver(ruleSetLoader) {
+
+        var _ruleSetLoader;
+        Object.defineProperty(this, "ruleSetLoader", {
+            get: function () {
+                return _ruleSetLoader;
+            },
+            set: function (value) {
+                if (_.isUndefined(value)) throw Error("A RuleSetLoader must be used");
+                if (value instanceof RuleSetLoader) {
+                    _ruleSetLoader = value;
+                } else {
+                    throw Error('RuleSetLoader is not of type RuleSetLoader or one of its descendant');
+                }
+            }
+        });
+
+        this.ruleSetLoader = ruleSetLoader;
+
+
+        return this;
+    }
+
+
+    RuleSetResolver.prototype.load = function (ruleSetName) {
+
+        //TODO the entire processor stuff should be built as a package that can be reuse across projects.
+
+        var parsedRuleSet = this.getFromCache(ruleSetName);
+
+        if (parsedRuleSet == null) {
+            var ruleSetDefinition = this.ruleSetLoader.load(ruleSetName);
+            parsedRuleSet = this.parseRuleSetDefinition(ruleSetDefinition);
+
+            this.addToCache(ruleSetName, parsedRuleSet);
+
+        }
+
+        return parsedRuleSet;
+
+    };
+
+    RuleSetResolver.prototype.parseRuleSetDefinition = function (ruleSetDefinition) {
+        if (_.isUndefined(ruleSetDefinition) || !ruleSetDefinition) {
+            throw Error("Rule Set definition is not provided");
+        }
+
+        var materializedDefinition = {};
+
+        function internalParse(innerDefinition) {
+            var nodeType = '';
+            var parameters = null;
+            var inner = {};
+
+            for (var prop in innerDefinition) {
+
+                if (prop == 'nodeType') {
+                    nodeType = innerDefinition[prop];
+                } else if (prop == 'parameters') {
+                    parameters = innerDefinition[prop];
+                    if (!_.isUndefined(parameters)) {
+                        for (var paramProp in parameters) {
+                            if (paramProp == 'condition') {
+                                inner[paramProp] = parameters[paramProp];
+                            } else {
+                                inner[paramProp] = internalParse(parameters[paramProp]);
+                            }
+                        }
+                    }
+                } else {
+                    return innerDefinition[prop];
+                }
+
+
+            }
+            return;
+            //TODO Reparse this correctly
+            //return NodeFactory.create(nodeType, inner);
+        }
+
+        materializedDefinition = internalParse(ruleSetDefinition);
+
+        return materializedDefinition;
+    };
+
+    RuleSetResolver.prototype.addToCache = function (ruleSetName, ruleSetDefinition) {
+        RuleSetCache.add(ruleSetName, ruleSetDefinition);
+    };
+
+    RuleSetResolver.prototype.getFromCache = function (ruleSetName) {
+        return RuleSetCache.get(ruleSetName);
+    };
+
+    function RuleEngine(ruleSetResolver) {
+        var _ruleSetResolver;
+        Object.defineProperty(this, "ruleSetResolver", {
+            get: function () {
+                return _ruleSetResolver;
+            },
+            set: function (value) {
+                if (_.isUndefined(value)) throw Error("A RuleSetResolver must be used");
+                if (value instanceof RuleSetResolver) {
+                    _ruleSetResolver = value;
+                } else {
+                    throw Error('RuleSetResolver is not of type RuleSetResolver or one of its descendant');
+                }
+            }
+        });
+
+        this.ruleSetResolver = ruleSetResolver;
+    }
+
+    RuleEngine.prototype.evaluate = function (fact, ruleSetNames) {
+        //ruleSetNames can be an array of names of rule set to load or a simple single name of a rule set to evaluate
+    };
+
+
 //Exports
     exports.RuleEvaluator = RuleEvaluator;
-    exports.BusinessRuleEvaluator = BusinessRuleEvaluator;
     exports.RuleSetEvaluator = RuleSetEvaluator;
     exports.RuleSet = RuleSet;
 
 })(
-        require('util'),
-        require('../Rule/Rule').Rule,
-        require('../Rule/Rule').BusinessRule,
-        require('events').EventEmitter,
-        require('q')
-    );
+    require('util'),
+    require('./Rule').Rule,
+    require('events').EventEmitter,
+    require('q')
+);
