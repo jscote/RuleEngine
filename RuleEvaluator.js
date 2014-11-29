@@ -1,16 +1,13 @@
-﻿//TODO : Revise RuleEvaluator/RuleSetEvaluator => maybe only one is needed, especially with the concept of RuleEngine
+﻿//TODO : Adjust ProcessLoader to work with promise as they will most likely be loaded async
 //TODO : Refactor Evaluate method on RuleEvaluator to loop on promises => consider using q.all(an array built from all rules calling evaluate as a promise for each rule).then(result)
-//TODO : Change haltOnFirstInvalidRule to two properties: haltOnFirstTrueRule and haltOnFirstFalseRule, setting one should set the other one off
-//TODO : Consider introducing a RuleEngine class that coordinate the evaluation of all rule sets.
-//TODO : Implementation of RuleEvaluator should initialize EvaluationContext and all rules in them (this may not be necessary as the evaluation context exposes methods to get IsEvaluated and IsTrue)
-//TODO : Loading Rules from RuleSet with a RuleSetLoader/RuleSetResolver and cache (similar to processors)
+//        - Partly done but need to take into account the Stop On First (true/false) rule as well as dealing with exception and broken rules.
+//TODO : Consider ordering of rules and rulesets.
 //TODO : Integrate RuleEngine with Condition on Processors
 //TODO : Flatten the fact to pass it in the evaluation context when coming from processors => processor has context and context has data. The data part should become part of the fact
 //TODO : Change BrokenRule Concept to be only for containing rules that have exceptions, potentially moving that as well to the evaluation context.
 //TODO : Consider which "require" modules should be passed to the vm.context so that condition can be evaluated easily. JSONPath might be an interesting one, potentially inject a module that does nothing for now but that can be replaced by whatever we want at runtime (such as persistence)
-//TODO : The RuleEngine evaluate method should simply take a Fact as a parameter. The whole evaluation context can be hidden and created within the evaluate method and pass across.
 
-(function (util, Rule, EventEmitter, q) {
+(function (_, util, Rule, RuleCondition, EvaluationContext, EventEmitter, q, Injector) {
 
     'use strict';
 
@@ -22,66 +19,75 @@
         options = options || {};
 
         Object.defineProperty(this, "rules", {writable: true, value: {}});
-        Object.defineProperty(this, "hasExceptions", {writable: true, value: false});
         Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
-        Object.defineProperty(this, "haltOnFirstInvalidRule", {
+        Object.defineProperty(this, "haltOnFirstTrueRule", {
             writable: true,
-            value: options.haltOnFirstInvalidRule || false
+            value: options.haltOnFirstTrueRule || false
         });
-        Object.defineProperty(this, "exceptionMessages", {writable: true, value: []});
-        Object.defineProperty(this, "brokenRules", {writable: true, value: []});
+        Object.defineProperty(this, "haltOnFirstFalseRule", {
+            writable: true,
+            value: options.haltOnFirstFalseRule || false
+        });
 
-        Object.defineProperty(this, "isValid", {writable: true, value: false, configurable: true});
-        Object.defineProperty(this, "isValidated", {writable: true, value: false});
-        Object.defineProperty(this, "isValidating", {writable: true, value: false});
-
-        this.on("ruleEvaluated", function (rule) {
-            console.log("onRuleEvaluated with " + rule.isTrue);
-            if (!this.isValid) return;
-
-            this.isValid = rule.isTrue;
-        }.bind(this));
-
-
-        var _evaluationContext = null;
-        Object.defineProperty(this, "evaluationContext", {
+        var _ruleSet = null;
+        Object.defineProperty(this, "ruleSet", {
             get: function () {
-                return _evaluationContext;
+                return _ruleSet;
             },
             set: function (value) {
-                _evaluationContext = value;
+                if (value) {
+                    if (!(value instanceof RuleSet)) {
+                        throw Error("The ruleSet is not of the proper type of RuleSet");
+                    }
+
+                    _ruleSet = value;
+                }
             }
         });
 
-        this.evaluationContext = options.evaluationContext || null;
+        this.ruleSet = options.ruleSet;
+
+        if (!options.ruleSet) {
+            throw Error("A RuleSet needs to be provided to the RuleSetEvaluator");
+        }
+
+        for (var prop in this.ruleSet.rules) {
+            this.addRule(this.ruleSet.rules[prop]);
+        }
+
 
         this.emit('ready');
-
-        this.on("evaluationStarting", function () {
-            this.brokenRules = [];
-        }.bind(this));
     };
 
     util.inherits(RuleEvaluator, EventEmitter);
 
-    RuleEvaluator.prototype.evaluateItem = function (rule) {
-        if (!rule) {
-            this.emit('error', "The rule should be specified for evaluation.");
+    RuleEvaluator.prototype.evaluate = function (evaluationContext, fact) {
+
+        var dfd = q.defer();
+        var self = this;
+
+        function evaluateRules(rules, evaluationContext, fact) {
+            var promises = _.map(rules, function (rule) {
+                return rule.evaluateCondition.call(rule, evaluationContext, fact);
+            });
+
+            return q.all(promises);
         }
 
-        if (!(rule instanceof Rule)) {
-            this.emit('error', "The rule to evaluate is not a rule object.");
-        }
+        process.nextTick(function () {
+            evaluateRules(self.rules, evaluationContext, fact).then(function (result) {
+                var evaluationResult = _.reduce(result, function (result, current) {
+                    var isTrue = result.isTrue ? current.isTrue && result.isTrue : false;
+                    return {isTrue: isTrue};
+                });
+                dfd.resolve(evaluationResult);
+            });
+        });
 
-        return rule.evaluateCondition();
-    };
 
-    RuleEvaluator.prototype.evaluate = function () {
+        return dfd.promise;
 
-        this.isValidating = true;
-        this.isValidated = false;
-        this.isValid = true;
-
+/*
         if (!this.evaluationContext) {
             this.emit('evaluationError', "A rule needs a problem state to operate on.");
         } else {
@@ -149,10 +155,10 @@
         return dfd.promise;
 
         //async_evaluate(evaluationCompleted);
+        */
     };
 
     RuleEvaluator.prototype.addRule = function (rule) {
-
 
         var dfd = q.defer();
 
@@ -193,81 +199,20 @@
         return dfd.promise;
     };
 
-    var RuleSetEvaluator = function RuleSetEvaluator(options) {
-        options = options || {};
-        RuleEvaluator.call(this, options);
-
-        var self = this;
-        var _isValid = false;
-        Object.defineProperty(this, "isValid", {
-            get: function () {
-                return _isValid;
-            },
-            set: function (value) {
-                _isValid = value;
-                self.ruleSet.isValid = value;
-            }
-        });
-
-        var _ruleSet = null;
-        Object.defineProperty(this, "ruleSet", {
-            get: function () {
-                return _ruleSet;
-            },
-            set: function (value) {
-                if (value) {
-                    if (!(value instanceof RuleSet)) {
-                        throw Error("The ruleSet is not of the proper type of RuleSet");
-                    }
-
-                    _ruleSet = value;
-                }
-            }
-        });
-
-        this.ruleSet = options.ruleSet;
-
-        if (!options.ruleSet) {
-            throw Error("A RuleSet needs to be provided to the RuleSetEvaluator");
-        }
-
-        for (var prop in this.ruleSet.rules) {
-            this.addRule(this.ruleSet.rules[prop]);
-        }
-
-        this.evaluationContext = this.ruleSet.evaluationContext;
-        this.haltOnException = this.ruleSet.haltOnException;
-        this.haltOnFirstInvalidRule = this.ruleSet.haltOnFirstInvalidRule;
-
-
-        return this;
-    };
-
-    util.inherits(RuleSetEvaluator, RuleEvaluator);
-
     var RuleSet = function RuleSet(options) {
         options = options || {};
 
-        Object.defineProperty(this, "rules", {writable: true, value: {}});
-        Object.defineProperty(this, "isValid", {writable: true, value: false});
+        Object.defineProperty(this, "rules", {writable: true, value: options.rules || {}});
         Object.defineProperty(this, "ruleSetName", {writable: true, value: options.ruleSetName || 'unknown'});
         Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
-        Object.defineProperty(this, "haltOnFirstInvalidRule", {
+        Object.defineProperty(this, "haltOnFirstTrueRule", {
             writable: true,
-            value: options.haltOnFirstInvalidRule || false
+            value: options.haltOnFirstTrueRule || false
         });
-
-        var _evaluationContext = null;
-        Object.defineProperty(this, "evaluationContext", {
-            get: function () {
-                return _evaluationContext;
-            },
-            set: function (value) {
-                _evaluationContext = value;
-            }
+        Object.defineProperty(this, "haltOnFirstFalseRule", {
+            writable: true,
+            value: options.haltOnFirstFalseRule || false
         });
-
-        this.evaluationContext = options.evaluationContext || null;
     };
 
     RuleSet.prototype.addRule = function (rule, addedRuleCallback) {
@@ -280,19 +225,6 @@
 
                 if (!(rule instanceof Rule)) {
                     throw Error("The rule to evaluate is not a rule object.");
-                }
-
-                if (this.rules) {
-                    this.rules[rule.ruleName] = rule;
-
-                    rule.evaluationContext = this.evaluationContext;
-
-                    if (rule.condition.evaluationContext) {
-                        rule.condition.evaluationContext.rules = this.rules;
-                    }
-
-                } else {
-                    throw Error("The rule list is not initialized.");
                 }
                 callback();
             }.bind(this));
@@ -307,13 +239,48 @@
         async_addRule(rule, addRuleCompleted);
     };
 
-
     function RuleSetLoader() {
 
     }
 
     RuleSetLoader.prototype.load = function (ruleSetName) {
+        var dfd = q.defer();
 
+        process.nextTick(function () {
+            var ruleSet;
+            if (ruleSetName == 'SomeTest') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    rules: {
+                        "female20to40": new Rule({
+                            ruleName: 'female20to40',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                        }),
+                        "female": new Rule({
+                            ruleName: 'female',
+                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+
+                        })
+                    }
+                });
+            }
+
+            if (ruleSetName == 'SomeOtherTest') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    rules: {
+                        "female20to40": new Rule({
+                            ruleName: 'female10to50',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=10 && fact.age <=50")
+                        })
+                    }
+                });
+            }
+
+            dfd.resolve(ruleSet);
+        });
+
+        return dfd.promise;
     };
 
     var cache = {};
@@ -358,23 +325,30 @@
 
     RuleSetResolver.prototype.load = function (ruleSetName) {
 
-        //TODO the entire processor stuff should be built as a package that can be reuse across projects.
+        var dfd = q.defer();
+        var self = this;
 
-        var parsedRuleSet = this.getFromCache(ruleSetName);
+        process.nextTick(function () {
+            var parsedRuleSet = self.getFromCache(ruleSetName);
 
-        if (parsedRuleSet == null) {
-            var ruleSetDefinition = this.ruleSetLoader.load(ruleSetName);
-            parsedRuleSet = this.parseRuleSetDefinition(ruleSetDefinition);
+            if (parsedRuleSet == null) {
+                var ruleSetDefinition = self.ruleSetLoader.load(ruleSetName);
+                parsedRuleSet = self.parseRuleSetDefinition(ruleSetDefinition);
 
-            this.addToCache(ruleSetName, parsedRuleSet);
+                self.addToCache(ruleSetName, parsedRuleSet);
 
-        }
+            }
+            dfd.resolve(parsedRuleSet);
+        });
 
-        return parsedRuleSet;
+
+        return dfd.promise;
 
     };
 
     RuleSetResolver.prototype.parseRuleSetDefinition = function (ruleSetDefinition) {
+        return ruleSetDefinition;
+
         if (_.isUndefined(ruleSetDefinition) || !ruleSetDefinition) {
             throw Error("Rule Set definition is not provided");
         }
@@ -446,17 +420,80 @@
 
     RuleEngine.prototype.evaluate = function (fact, ruleSetNames) {
         //ruleSetNames can be an array of names of rule set to load or a simple single name of a rule set to evaluate
+
+        var arrRuleSetNames = [];
+        var ruleSetEvaluator = [];
+
+        var dfd = q.defer();
+
+
+        if (!_.isArray(ruleSetNames) && _.isString(ruleSetNames)) {
+            arrRuleSetNames.push(ruleSetNames);
+        } else if (_.isArray(ruleSetNames)) {
+            arrRuleSetNames = ruleSetNames;
+        } else {
+            throw Error("RuleSetNames should either be an array of string or a single string value.");
+        }
+
+        function initializeRuleSets(arr, iteratorFunc, binder) {
+            var promises = _.map(arr, function (item) {
+                return iteratorFunc.call(binder, item);
+            });
+
+            return q.all(promises);
+        }
+
+        function evaluateRuleSets(arr, evaluationContext) {
+            var promises = _.map(arr, function (item) {
+                return item.evaluate.call(item, evaluationContext, fact);
+            });
+
+            return q.all(promises);
+        }
+
+        initializeRuleSets(arrRuleSetNames, this.ruleSetResolver.load, this.ruleSetResolver).then(function (result) {
+            //we are done with loading all ruleSets
+            for (var i = 0; i < result.length; i++) {
+                ruleSetEvaluator.push(new RuleEvaluator({ruleSet: result[i]}));
+            }
+            var evaluationContext = new EvaluationContext();
+
+            evaluateRuleSets(ruleSetEvaluator, evaluationContext).then(function (evaluationRuleSetResult) {
+                var evaluationResult = _.reduce(evaluationRuleSetResult, function (result, current) {
+                    var isTrue = result.isTrue ? current.isTrue && result.isTrue : false;
+                    return {isTrue : isTrue}
+                });
+                dfd.resolve(evaluationResult.isTrue);
+            });
+
+
+        });
+
+        return dfd.promise;
     };
 
 
 //Exports
     exports.RuleEvaluator = RuleEvaluator;
-    exports.RuleSetEvaluator = RuleSetEvaluator;
     exports.RuleSet = RuleSet;
+    exports.RuleEngine = RuleEngine;
+    exports.RuleSetResolver = RuleSetResolver;
+    exports.RuleSetLoader = RuleSetLoader;
+
+    Injector.setBasePath(__dirname);
+    Injector
+        .register({dependency: '/RuleEvaluator::RuleSetResolver', name: 'ruleSetResolver'})
+        .register({dependency: '/RuleEvaluator::RuleSetLoader', name: 'ruleSetLoader'})
+        .register({dependency: '/RuleEvaluator::RuleEngine', name: 'ruleEngine'});
+
 
 })(
+    require('lodash'),
     require('util'),
     require('./Rule').Rule,
+    require('./Rule').RuleCondition,
+    require('./Rule').EvaluationContext,
     require('events').EventEmitter,
-    require('q')
+    require('q'),
+    require('jsai-injector')
 );

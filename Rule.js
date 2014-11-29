@@ -4,6 +4,9 @@
 
     var EvaluationContext = function() {
         this.ruleStates = {};
+
+        Object.defineProperty(this, "isValid", {writable: true, enumerable: true, value: false});
+        Object.defineProperty(this, "brokenRules", {writable: true, value: []});
     };
 
     EvaluationContext.prototype.isEvaluated = function(ruleName) {
@@ -21,6 +24,8 @@
     EvaluationContext.prototype.setIsTrue = function(ruleName, isTrue) {
         if(_.isUndefined(this.ruleStates[ruleName])) this.ruleStates[ruleName] = new RuleState();
         this.ruleStates[ruleName].isTrue = isTrue;
+
+        if(this.isValid) this.isValid = isTrue;
     };
 
     var RuleState = function() {

@@ -68,7 +68,7 @@ module.exports = {
             this.gender = gender;
         }
 
-        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40");
+        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40");
 
         c.evaluateCondition({}, new Person(30, 'F')).then(function(result) {
             test.ok(result);
@@ -82,7 +82,7 @@ module.exports = {
             this.gender = gender;
         };
 
-        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40");
+        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40");
 
         c.evaluateCondition({}, new Person(30, 'M')).then(function(result) {
             test.ok(!result);
@@ -97,7 +97,7 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")});
 
         var evalCtx = new EvaluationContext();
 
@@ -131,7 +131,7 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")});
 
         var evalCtx = new EvaluationContext();
 
