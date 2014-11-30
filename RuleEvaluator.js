@@ -1,6 +1,7 @@
-﻿//TODO : Adjust ProcessLoader to work with promise as they will most likely be loaded async
-//TODO : Refactor Evaluate method on RuleEvaluator to loop on promises => consider using q.all(an array built from all rules calling evaluate as a promise for each rule).then(result)
+﻿//TODO : Refactor Evaluate method on RuleEvaluator to loop on promises => consider using q.all(an array built from all rules calling evaluate as a promise for each rule).then(result)
 //        - Partly done but need to take into account the Stop On First (true/false) rule as well as dealing with exception and broken rules.
+//        - Problem: using a map that returns all promises and wait for the evaluation of all of them is somewhat working but doesn't allow to stop when one of them is false as all promises in the map are evaluated.
+//          It is also possible that if a condition is also using another promise inside its evaluation that then promises are not evaluated sequentially. This makes short circuiting evaluation a little difficult - Need to think about this one a little more.
 //TODO : Consider ordering of rules and rulesets.
 //TODO : Integrate RuleEngine with Condition on Processors
 //TODO : Flatten the fact to pass it in the evaluation context when coming from processors => processor has context and context has data. The data part should become part of the fact
@@ -67,8 +68,18 @@
         var self = this;
 
         function evaluateRules(rules, evaluationContext, fact) {
+
+
             var promises = _.map(rules, function (rule) {
-                return rule.evaluateCondition.call(rule, evaluationContext, fact);
+                return (function () {
+                    var dfd = q.defer();
+                    var p = rule.evaluateCondition.call(rule, evaluationContext, fact);
+                    p.then(function (evaluationResult) {
+                        dfd.resolve(evaluationResult);
+
+                    });
+                    return dfd.promise;
+                }());
             });
 
             return q.all(promises);
@@ -87,75 +98,75 @@
 
         return dfd.promise;
 
-/*
-        if (!this.evaluationContext) {
-            this.emit('evaluationError', "A rule needs a problem state to operate on.");
-        } else {
+        /*
+         if (!this.evaluationContext) {
+         this.emit('evaluationError', "A rule needs a problem state to operate on.");
+         } else {
 
 
-            this.emit("evaluationStarting");
+         this.emit("evaluationStarting");
 
-            var dfd = q.defer();
+         var dfd = q.defer();
 
-            //var async_evaluate = function (callback) {
-            process.nextTick(function () {
+         //var async_evaluate = function (callback) {
+         process.nextTick(function () {
 
-                var self = this;
-                var hasErrors = false;
+         var self = this;
+         var hasErrors = false;
 
-                if (this.rules) {
-                    for (var prop in this.rules) {
-                        try {
+         if (this.rules) {
+         for (var prop in this.rules) {
+         try {
 
-                            this.evaluateItem(this.rules[prop]).then(function (result) {
-                                //Keep track of broken rules. Instead of implementing this code in the evaluateItem function, it's done
-                                //here because evaluateItem is most likely to be overridden by other type of evaluators and we want to preserve most of the code
-                                if (!result.isTrue) {
-                                    console.log("adding broken rule " + result.rule.ruleFriendlyName);
-                                    self.brokenRules.push(result.rule.ruleFriendlyName);
+         this.evaluateItem(this.rules[prop]).then(function (result) {
+         //Keep track of broken rules. Instead of implementing this code in the evaluateItem function, it's done
+         //here because evaluateItem is most likely to be overridden by other type of evaluators and we want to preserve most of the code
+         if (!result.isTrue) {
+         console.log("adding broken rule " + result.rule.ruleFriendlyName);
+         self.brokenRules.push(result.rule.ruleFriendlyName);
 
-                                    if (self.haltOnFirstInvalidRule) {
-                                        self.emit('ruleEvaluated', result.rule);
-                                        dfd.reject('Stop evaluation on first error');
-                                    }
-                                }
+         if (self.haltOnFirstInvalidRule) {
+         self.emit('ruleEvaluated', result.rule);
+         dfd.reject('Stop evaluation on first error');
+         }
+         }
 
-                                self.emit('ruleEvaluated', result.rule);
-                            }).fail(function (reason) {
-                                self.hasExceptions = true;
-                                self.exceptionMessages.push(reason);
-                            });
+         self.emit('ruleEvaluated', result.rule);
+         }).fail(function (reason) {
+         self.hasExceptions = true;
+         self.exceptionMessages.push(reason);
+         });
 
 
-                        }
-                        catch (e) {
-                            this.hasExceptions = true;
-                            this.exceptionMessages.push(e.message);
+         }
+         catch (e) {
+         this.hasExceptions = true;
+         this.exceptionMessages.push(e.message);
 
-                            if (this.haltOnException) {
-                                dfd.reject('Exception');
-                                break;
-                            }
-                        }
-                    }
-                    dfd.resolve();
-                } else {
-                    this.emit('evaluationError', "The rule list is not initialized.");
-                }
-            }.bind(this));
-            //}.bind(this);
-        }
+         if (this.haltOnException) {
+         dfd.reject('Exception');
+         break;
+         }
+         }
+         }
+         dfd.resolve();
+         } else {
+         this.emit('evaluationError', "The rule list is not initialized.");
+         }
+         }.bind(this));
+         //}.bind(this);
+         }
 
-        var evaluationCompleted = function () {
-            this.isValidating = false;
-            this.isValidated = true;
-            this.emit('allRulesEvaluated', this);
-        }.bind(this);
+         var evaluationCompleted = function () {
+         this.isValidating = false;
+         this.isValidated = true;
+         this.emit('allRulesEvaluated', this);
+         }.bind(this);
 
-        return dfd.promise;
+         return dfd.promise;
 
-        //async_evaluate(evaluationCompleted);
-        */
+         //async_evaluate(evaluationCompleted);
+         */
     };
 
     RuleEvaluator.prototype.addRule = function (rule) {
@@ -461,7 +472,7 @@
             evaluateRuleSets(ruleSetEvaluator, evaluationContext).then(function (evaluationRuleSetResult) {
                 var evaluationResult = _.reduce(evaluationRuleSetResult, function (result, current) {
                     var isTrue = result.isTrue ? current.isTrue && result.isTrue : false;
-                    return {isTrue : isTrue}
+                    return {isTrue: isTrue}
                 });
                 dfd.resolve(evaluationResult.isTrue);
             });
