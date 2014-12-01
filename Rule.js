@@ -55,7 +55,7 @@
 
         if (!options.ruleName) throw Error("A ruleName must be specified");
 
-        Object.defineProperty(this, "ruleName", {value: options.ruleName, enumerable: true});
+        Object.defineProperty(this, "ruleName", {value: options.ruleName, enumerable: true, writable: true});
         Object.defineProperty(this, "ruleFriendlyName", {
             value: options.ruleFriendlyName || options.ruleName,
             enumerable: true

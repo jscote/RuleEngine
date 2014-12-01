@@ -50,6 +50,7 @@
 
         for (var prop in this.ruleSet.rules) {
             this.addRule(this.ruleSet.rules[prop]);
+            this.ruleSet.rules[prop].ruleName = this.ruleSet.ruleSetName + '_' + this.ruleSet.rules[prop].ruleName;
         }
 
         this.haltOnException = _ruleSet.haltOnException;
@@ -461,7 +462,7 @@
                     var isTrue = result.isTrue ? current.isTrue && result.isTrue : false;
                     return {isTrue: isTrue}
                 });
-                dfd.resolve(evaluationResult.isTrue);
+                dfd.resolve({isTrue: evaluationResult.isTrue, evaluationContext: evaluationContext});
             });
 
 

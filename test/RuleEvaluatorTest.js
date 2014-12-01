@@ -38,8 +38,8 @@ module.exports = {
 
         test.ok(ruleEngine);
 
-        ruleEngine.evaluate(new Person(30, 'F'), ['SomeTest']).then(function(result) {
-            test.ok(result);
+        ruleEngine.evaluate(new Person(30, 'F'), ['SomeTest', 'SomeOtherTest']).then(function(result) {
+            test.ok(result.isTrue);
             test.done();
         });
 
