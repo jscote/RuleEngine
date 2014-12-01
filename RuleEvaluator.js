@@ -1,8 +1,4 @@
-﻿//TODO : Refactor Evaluate method on RuleEvaluator to loop on promises => consider using q.all(an array built from all rules calling evaluate as a promise for each rule).then(result)
-//        - Partly done but need to take into account the Stop On First (true/false) rule as well as dealing with exception and broken rules.
-//        - Problem: using a map that returns all promises and wait for the evaluation of all of them is somewhat working but doesn't allow to stop when one of them is false as all promises in the map are evaluated.
-//          It is also possible that if a condition is also using another promise inside its evaluation that then promises are not evaluated sequentially. This makes short circuiting evaluation a little difficult - Need to think about this one a little more.
-//TODO : Consider ordering of rules and rulesets.
+﻿//TODO : Consider ordering of rules and rulesets.
 //TODO : Integrate RuleEngine with Condition on Processors
 //TODO : Flatten the fact to pass it in the evaluation context when coming from processors => processor has context and context has data. The data part should become part of the fact
 //TODO : Change BrokenRule Concept to be only for containing rules that have exceptions, potentially moving that as well to the evaluation context.
@@ -20,14 +16,14 @@
         options = options || {};
 
         Object.defineProperty(this, "rules", {writable: true, value: {}});
-        Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
+        Object.defineProperty(this, "haltOnException", {writable: true, value: true});
         Object.defineProperty(this, "haltOnFirstTrueRule", {
             writable: true,
-            value: options.haltOnFirstTrueRule || false
+            value: false
         });
         Object.defineProperty(this, "haltOnFirstFalseRule", {
             writable: true,
-            value: options.haltOnFirstFalseRule || false
+            value: false
         });
 
         var _ruleSet = null;
@@ -56,117 +52,102 @@
             this.addRule(this.ruleSet.rules[prop]);
         }
 
+        this.haltOnException = _ruleSet.haltOnException;
+        this.haltOnFirstFalseRule = _ruleSet.haltOnFirstFalseRule;
+        this.haltOnFirstTrueRule = _ruleSet.haltOnFirstTrueRule;
+
 
         this.emit('ready');
     };
 
     util.inherits(RuleEvaluator, EventEmitter);
 
+    RuleEvaluator.prototype.iterateRules = function (index, ruleArray, evaluationContext, fact) {
+        var self = this;
+        var dfd = q.defer();
+
+        function loop(loopResponse) {
+            // When the result of calling `condition` is no longer true, we are
+            // done.
+            q.fcall(function () {
+                return index < ruleArray.length
+            }).then(function (conditionResult) {
+
+                if (conditionResult) {
+                    q.fcall(ruleArray[index].evaluateCondition.bind(ruleArray[index]), evaluationContext, fact).then(function (ruleEvaluationResult) {
+
+                        index++;
+                        var response = {isTrue: true};
+                        response.isTrue = !loopResponse.isTrue ? false : ruleEvaluationResult.isTrue;
+
+                        if (ruleEvaluationResult.isTrue) {
+                            if (self.haltOnFirstTrueRule) {
+                                return dfd.resolve(response);
+                            } else {
+                                loop(response);
+                            }
+                        } else {
+                            if (self.haltOnFirstFalseRule) {
+                                return dfd.resolve(response);
+                            } else {
+                                loop(response);
+                            }
+
+
+                        }
+                    }, function (error) {
+                        index++;
+                        evaluationContext.brokenRules.push(error);
+                        var response = {isTrue: true};
+                        //is it the right thing to assume the condition was true if it threw an exception? Probably not
+                        response.isTrue = !loopResponse.isTrue ? false : false;
+                        if (self.haltOnException) {
+                            return dfd.resolve(response);
+                        } else {
+
+                            loop(response);
+                        }
+                    });
+                }
+                else {
+                    return dfd.resolve(loopResponse);
+                }
+
+            }, function (error) {
+                console.log("there is an error");
+            }).done();
+        }
+
+        process.nextTick(function () {
+            loop({isTrue: true});
+        });
+
+        // The promise
+        return dfd.promise;
+    };
+
+
     RuleEvaluator.prototype.evaluate = function (evaluationContext, fact) {
 
         var dfd = q.defer();
         var self = this;
 
-        function evaluateRules(rules, evaluationContext, fact) {
-
-
-            var promises = _.map(rules, function (rule) {
-                return (function () {
-                    var dfd = q.defer();
-                    var p = rule.evaluateCondition.call(rule, evaluationContext, fact);
-                    p.then(function (evaluationResult) {
-                        dfd.resolve(evaluationResult);
-
-                    });
-                    return dfd.promise;
-                }());
-            });
-
-            return q.all(promises);
-        }
-
         process.nextTick(function () {
-            evaluateRules(self.rules, evaluationContext, fact).then(function (result) {
-                var evaluationResult = _.reduce(result, function (result, current) {
-                    var isTrue = result.isTrue ? current.isTrue && result.isTrue : false;
-                    return {isTrue: isTrue};
-                });
-                dfd.resolve(evaluationResult);
-            });
-        });
 
+            var ruleArray = _.map(self.rules, function (item) {
+                return item;
+            });
+
+            self.iterateRules(0, ruleArray, evaluationContext, fact).then(function (rulesResult) {
+                dfd.resolve(rulesResult);
+            }, function (error) {
+                dfd.resolve({isTrue: false});
+            }).done();
+
+        });
 
         return dfd.promise;
 
-        /*
-         if (!this.evaluationContext) {
-         this.emit('evaluationError', "A rule needs a problem state to operate on.");
-         } else {
-
-
-         this.emit("evaluationStarting");
-
-         var dfd = q.defer();
-
-         //var async_evaluate = function (callback) {
-         process.nextTick(function () {
-
-         var self = this;
-         var hasErrors = false;
-
-         if (this.rules) {
-         for (var prop in this.rules) {
-         try {
-
-         this.evaluateItem(this.rules[prop]).then(function (result) {
-         //Keep track of broken rules. Instead of implementing this code in the evaluateItem function, it's done
-         //here because evaluateItem is most likely to be overridden by other type of evaluators and we want to preserve most of the code
-         if (!result.isTrue) {
-         console.log("adding broken rule " + result.rule.ruleFriendlyName);
-         self.brokenRules.push(result.rule.ruleFriendlyName);
-
-         if (self.haltOnFirstInvalidRule) {
-         self.emit('ruleEvaluated', result.rule);
-         dfd.reject('Stop evaluation on first error');
-         }
-         }
-
-         self.emit('ruleEvaluated', result.rule);
-         }).fail(function (reason) {
-         self.hasExceptions = true;
-         self.exceptionMessages.push(reason);
-         });
-
-
-         }
-         catch (e) {
-         this.hasExceptions = true;
-         this.exceptionMessages.push(e.message);
-
-         if (this.haltOnException) {
-         dfd.reject('Exception');
-         break;
-         }
-         }
-         }
-         dfd.resolve();
-         } else {
-         this.emit('evaluationError', "The rule list is not initialized.");
-         }
-         }.bind(this));
-         //}.bind(this);
-         }
-
-         var evaluationCompleted = function () {
-         this.isValidating = false;
-         this.isValidated = true;
-         this.emit('allRulesEvaluated', this);
-         }.bind(this);
-
-         return dfd.promise;
-
-         //async_evaluate(evaluationCompleted);
-         */
     };
 
     RuleEvaluator.prototype.addRule = function (rule) {
@@ -215,14 +196,14 @@
 
         Object.defineProperty(this, "rules", {writable: true, value: options.rules || {}});
         Object.defineProperty(this, "ruleSetName", {writable: true, value: options.ruleSetName || 'unknown'});
-        Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException || true});
+        Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException});
         Object.defineProperty(this, "haltOnFirstTrueRule", {
             writable: true,
-            value: options.haltOnFirstTrueRule || false
+            value: false
         });
         Object.defineProperty(this, "haltOnFirstFalseRule", {
             writable: true,
-            value: options.haltOnFirstFalseRule || false
+            value: false
         });
     };
 
@@ -262,11 +243,17 @@
             if (ruleSetName == 'SomeTest') {
                 ruleSet = new RuleSet({
                     ruleSetName: ruleSetName,
+                    haltOnException: false,
                     rules: {
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
                             condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
                         }),
+                        /*"blowit": new Rule({
+                         ruleName: 'blowit',
+                         condition: new RuleCondition("throw(Error('Test Error'))")
+
+                         }),*/
                         "female": new Rule({
                             ruleName: 'female',
                             condition: new RuleCondition("isTrue = fact.gender !='M'")

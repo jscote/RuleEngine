@@ -97,6 +97,8 @@
             this.condition.evaluateCondition(evaluationContext, fact).then(function (result) {
                 evaluationContext.setIsTrue(self.ruleName, result);
                 dfd.resolve({isTrue: result, ruleState : evaluationContext.ruleStates[self.ruleName]});
+            }, function(error) {
+                dfd.reject(error);
             });
         } else {
             evaluationContext.ruleStates[self.ruleName].isTrue = true;
@@ -132,10 +134,14 @@
 
         var dfd = q.defer();
         process.nextTick(function(){
-            var sandbox = {fact : fact, isTrue: false, evaluationContext: evaluationContext};
-            var context = vm.createContext(sandbox);
-            vm.runInContext(self.predicate, context);
-            dfd.resolve(context.isTrue);
+            try {
+                var sandbox = {fact: fact, isTrue: false, evaluationContext: evaluationContext};
+                var context = vm.createContext(sandbox);
+                vm.runInContext(self.predicate, context);
+                dfd.resolve(context.isTrue);
+            } catch(e) {
+                dfd.reject(e);
+            }
         });
 
 
