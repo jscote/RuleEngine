@@ -50,8 +50,9 @@
 
         for (var prop in this.ruleSet.rules) {
             this.addRule(this.ruleSet.rules[prop]);
-            this.ruleSet.rules[prop].ruleName = this.ruleSet.ruleSetName + '_' + this.ruleSet.rules[prop].ruleName;
         }
+        //    this.ruleSet.rules[prop].ruleName = this.ruleSet.ruleSetName + '_' + this.ruleSet.rules[prop].ruleName;
+        // }
 
         this.haltOnException = _ruleSet.haltOnException;
         this.haltOnFirstFalseRule = _ruleSet.haltOnFirstFalseRule;
@@ -200,11 +201,11 @@
         Object.defineProperty(this, "haltOnException", {writable: true, value: options.haltOnException});
         Object.defineProperty(this, "haltOnFirstTrueRule", {
             writable: true,
-            value: false
+            value: options.haltOnFirstTrueRule
         });
         Object.defineProperty(this, "haltOnFirstFalseRule", {
             writable: true,
-            value: false
+            value: options.haltOnFirstFalseRule
         });
     };
 
@@ -246,20 +247,119 @@
                     ruleSetName: ruleSetName,
                     haltOnException: false,
                     rules: {
+                        "female": new Rule({
+                            ruleName: 'female',
+                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+
+                        }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
                             condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
-                        }),
+                        })
                         /*"blowit": new Rule({
                          ruleName: 'blowit',
                          condition: new RuleCondition("throw(Error('Test Error'))")
 
                          }),*/
+
+                    }
+                });
+            }
+
+            if (ruleSetName == 'SomeTestStopOnFirstTrueRule') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    haltOnFirstTrueRule: true,
+                    rules: {
                         "female": new Rule({
                             ruleName: 'female',
                             condition: new RuleCondition("isTrue = fact.gender !='M'")
 
+                        }),
+                        "female20to40": new Rule({
+                            ruleName: 'female20to40',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                        }),
+                        "married": new Rule({
+                            ruleName: 'maritalStatus',
+                            condition: new RuleCondition("isTrue = fact.martialStatus =='Married'")
                         })
+
+                    }
+                });
+            }
+
+            if (ruleSetName == 'SomeTestStopOnFirstFalseRule') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    haltOnFirstFalseRule: true,
+                    rules: {
+                        "female": new Rule({
+                                ruleName: 'female',
+                                condition: new RuleCondition("isTrue = fact.gender !='M'")
+
+                            }
+                        ),
+                        "married": new Rule({
+                            ruleName: 'maritalStatus',
+                            condition: new RuleCondition("isTrue = fact.martialStatus =='Married'")
+                        }),
+                        "female20to40": new Rule({
+                            ruleName: 'female20to40',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                        })
+
+                    }
+                });
+            }
+
+
+            if (ruleSetName == 'SomeTestHaltOnException') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    haltOnException: false,
+                    rules: {
+                        "female": new Rule({
+                            ruleName: 'female',
+                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+
+                        }),
+                        "blowit": new Rule({
+                            ruleName: 'blowit',
+                            condition: new RuleCondition("throw(Error('Test Error'))")
+
+                        }),
+                        "female20to40": new Rule({
+                            ruleName: 'female20to40',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                        })
+
+
+                    }
+                });
+            }
+
+            if (ruleSetName == 'SomeTestDoesNotHaltOnException') {
+                ruleSet = new RuleSet({
+                    ruleSetName: ruleSetName,
+                    haltOnException: true,
+                    rules: {
+                        "female": new Rule({
+                            ruleName: 'female',
+                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+
+                        }),
+                        "blowit": new Rule({
+                            ruleName: 'blowit',
+                            condition: new RuleCondition("throw(Error('Test Error'))")
+
+                        }),
+                        "female20to40": new Rule({
+                            ruleName: 'female20to40',
+                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                        })
+
+
                     }
                 });
             }
@@ -268,7 +368,7 @@
                 ruleSet = new RuleSet({
                     ruleSetName: ruleSetName,
                     rules: {
-                        "female20to40": new Rule({
+                        "female10to50": new Rule({
                             ruleName: 'female10to50',
                             condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=10 && fact.age <=50")
                         })
@@ -288,8 +388,12 @@
 
     }
 
-    RuleSetCache.add = function (ruleSetName, ruleSetDefinition) {
-        cache[ruleSetName] = ruleSetDefinition;
+    RuleSetCache.add = function (ruleSetName, ruleSet) {
+
+        for (var prop in ruleSet.rules) {
+            ruleSet.rules[prop].ruleName = ruleSet.ruleSetName + '_' + ruleSet.rules[prop].ruleName;
+        }
+        cache[ruleSetName] = ruleSet;
     };
 
     RuleSetCache.get = function (ruleSetName) {
@@ -331,13 +435,16 @@
             var parsedRuleSet = self.getFromCache(ruleSetName);
 
             if (parsedRuleSet == null) {
-                var ruleSetDefinition = self.ruleSetLoader.load(ruleSetName);
-                parsedRuleSet = self.parseRuleSetDefinition(ruleSetDefinition);
+                self.ruleSetLoader.load(ruleSetName).then(function (ruleSetDefinition) {
+                    parsedRuleSet = self.parseRuleSetDefinition(ruleSetDefinition);
 
-                self.addToCache(ruleSetName, parsedRuleSet);
+                    self.addToCache(ruleSetName, parsedRuleSet);
+                    dfd.resolve(parsedRuleSet);
+                });
 
+            } else {
+                dfd.resolve(parsedRuleSet);
             }
-            dfd.resolve(parsedRuleSet);
         });
 
 
