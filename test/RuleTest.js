@@ -52,9 +52,9 @@ module.exports = {
         test.done();
     },
     testRuleConditionMustHaveAPredicateThatIsEvaluated: function (test) {
-        var c = new RuleCondition('isTrue = fact.value;');
+        var c = new RuleCondition('isTrue = evaluationContext.value;');
 
-        c.evaluateCondition({},{value: true}).then(function(result){
+        c.evaluateCondition({value: true}).then(function(result){
             test.ok(result);
             test.done();
         });
@@ -68,9 +68,11 @@ module.exports = {
             this.gender = gender;
         }
 
-        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40");
+        var c = new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40");
 
-        c.evaluateCondition({}, new Person(30, 'F')).then(function(result) {
+        var evaluationContext = new EvaluationContext({fact: new Person(30, 'F')});
+
+        c.evaluateCondition(evaluationContext).then(function(result) {
             test.ok(result);
             test.done();
         });
@@ -81,10 +83,11 @@ module.exports = {
             this.age = age;
             this.gender = gender;
         };
+        var c = new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40");
 
-        var c = new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40");
+        var evaluationContext = new EvaluationContext({fact: new Person(30, 'M')});
 
-        c.evaluateCondition({}, new Person(30, 'M')).then(function(result) {
+        c.evaluateCondition(evaluationContext).then(function(result) {
             test.ok(!result);
             test.done();
         });
@@ -97,32 +100,19 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")});
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")});
 
-        var evalCtx = new EvaluationContext();
+        var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
 
         test.ok(!evalCtx.isEvaluated(r.ruleName), 'is not evaluated yet');
 
-        r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
+        r.evaluateCondition(evalCtx).then(function(result){
             test.ok(evalCtx.isEvaluated(r.ruleName), 'has been evaluated');
             test.ok(result);
             test.done();
         });
 
     },
-    /*testRuleThrowsWhenCheckingIsTruePriorToEvaluation: function (test) {
-
-        var Person = function (age, gender) {
-            this.age = age;
-            this.gender = gender;
-        };
-
-        test.throws(function(){
-            var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >-20 && fact.age <=40")});
-            r.evaluationContext.ruleStates[r.ruleName].isTrue;
-        });
-        test.done();
-    },*/
     testRuleDoesNotThrowWhenIsTrueIsCheckedAfterEvaluation: function (test) {
 
         var Person = function (age, gender) {
@@ -131,11 +121,11 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")});
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")});
 
-        var evalCtx = new EvaluationContext();
+        var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
 
-        r.evaluateCondition(evalCtx, new Person(30, 'F')).then(function(result){
+        r.evaluateCondition(evalCtx).then(function(result){
             test.ok(evalCtx.isTrue(r.ruleName));
             test.ok(result);
             test.done();

@@ -2,11 +2,13 @@
 
     'use strict';
 
-    var EvaluationContext = function() {
+    var EvaluationContext = function(options) {
+        options = options || {};
         this.ruleStates = {};
 
         Object.defineProperty(this, "isValid", {writable: true, enumerable: true, value: false});
-        Object.defineProperty(this, "brokenRules", {writable: true, value: []});
+        Object.defineProperty(this, "brokenRules", {writable: true, enumerable: true, value: []});
+        Object.defineProperty(this, "fact", {writable: true, enumerable: true, value: options.fact || null});
     };
 
     EvaluationContext.prototype.isEvaluated = function(ruleName) {
@@ -88,13 +90,13 @@
         return this;
     };
 
-    Rule.prototype.evaluateCondition = function (evaluationContext, fact) {
+    Rule.prototype.evaluateCondition = function (evaluationContext) {
 
         var self = this;
         var dfd = q.defer();
 
         if (this.condition) {
-            this.condition.evaluateCondition(evaluationContext, fact).then(function (result) {
+            this.condition.evaluateCondition(evaluationContext).then(function (result) {
                 evaluationContext.setIsTrue(self.ruleName, result);
                 dfd.resolve({isTrue: result, ruleState : evaluationContext.ruleStates[self.ruleName]});
             }, function(error) {
@@ -128,14 +130,14 @@
         return this;
     };
 
-    RuleCondition.prototype.evaluateCondition = function (evaluationContext, fact) {
+    RuleCondition.prototype.evaluateCondition = function (evaluationContext) {
 
         var self = this;
 
         var dfd = q.defer();
         process.nextTick(function(){
             try {
-                var sandbox = {fact: fact, isTrue: false, evaluationContext: evaluationContext};
+                var sandbox = {isTrue: false, evaluationContext: evaluationContext};
                 var context = vm.createContext(sandbox);
                 vm.runInContext(self.predicate, context);
                 dfd.resolve(context.isTrue);

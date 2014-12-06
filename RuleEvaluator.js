@@ -64,7 +64,7 @@
 
     util.inherits(RuleEvaluator, EventEmitter);
 
-    RuleEvaluator.prototype.iterateRules = function (index, ruleArray, evaluationContext, fact) {
+    RuleEvaluator.prototype.iterateRules = function (index, ruleArray, evaluationContext) {
         var self = this;
         var dfd = q.defer();
 
@@ -76,7 +76,7 @@
             }).then(function (conditionResult) {
 
                 if (conditionResult) {
-                    q.fcall(ruleArray[index].evaluateCondition.bind(ruleArray[index]), evaluationContext, fact).then(function (ruleEvaluationResult) {
+                    q.fcall(ruleArray[index].evaluateCondition.bind(ruleArray[index]), evaluationContext).then(function (ruleEvaluationResult) {
 
                         index++;
                         var response = {isTrue: true};
@@ -129,7 +129,7 @@
     };
 
 
-    RuleEvaluator.prototype.evaluate = function (evaluationContext, fact) {
+    RuleEvaluator.prototype.evaluate = function (evaluationContext) {
 
         var dfd = q.defer();
         var self = this;
@@ -140,7 +140,7 @@
                 return item;
             });
 
-            self.iterateRules(0, ruleArray, evaluationContext, fact).then(function (rulesResult) {
+            self.iterateRules(0, ruleArray, evaluationContext).then(function (rulesResult) {
                 dfd.resolve(rulesResult);
             }, function (error) {
                 dfd.resolve({isTrue: false});
@@ -249,12 +249,12 @@
                     rules: {
                         "female": new Rule({
                             ruleName: 'female',
-                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
                         }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
                         })
                         /*"blowit": new Rule({
                          ruleName: 'blowit',
@@ -273,16 +273,16 @@
                     rules: {
                         "female": new Rule({
                             ruleName: 'female',
-                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
                         }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
                         }),
                         "married": new Rule({
                             ruleName: 'maritalStatus',
-                            condition: new RuleCondition("isTrue = fact.martialStatus =='Married'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.martialStatus =='Married'")
                         })
 
                     }
@@ -296,17 +296,17 @@
                     rules: {
                         "female": new Rule({
                                 ruleName: 'female',
-                                condition: new RuleCondition("isTrue = fact.gender !='M'")
+                                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
                             }
                         ),
                         "married": new Rule({
                             ruleName: 'maritalStatus',
-                            condition: new RuleCondition("isTrue = fact.martialStatus =='Married'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.martialStatus =='Married'")
                         }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
                         })
 
                     }
@@ -321,7 +321,7 @@
                     rules: {
                         "female": new Rule({
                             ruleName: 'female',
-                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
                         }),
                         "blowit": new Rule({
@@ -331,7 +331,7 @@
                         }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
                         })
 
 
@@ -346,7 +346,7 @@
                     rules: {
                         "female": new Rule({
                             ruleName: 'female',
-                            condition: new RuleCondition("isTrue = fact.gender !='M'")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
                         }),
                         "blowit": new Rule({
@@ -356,7 +356,7 @@
                         }),
                         "female20to40": new Rule({
                             ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=20 && fact.age <=40")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
                         })
 
 
@@ -370,7 +370,7 @@
                     rules: {
                         "female10to50": new Rule({
                             ruleName: 'female10to50',
-                            condition: new RuleCondition("isTrue = fact.gender !='M' && fact.age >=10 && fact.age <=50")
+                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=10 && evaluationContext.fact.age <=50")
                         })
                     }
                 });
@@ -551,7 +551,7 @@
 
         function evaluateRuleSets(arr, evaluationContext) {
             var promises = _.map(arr, function (item) {
-                return item.evaluate.call(item, evaluationContext, fact);
+                return item.evaluate.call(item, evaluationContext);
             });
 
             return q.all(promises);
@@ -562,7 +562,7 @@
             for (var i = 0; i < result.length; i++) {
                 ruleSetEvaluator.push(new RuleEvaluator({ruleSet: result[i]}));
             }
-            var evaluationContext = new EvaluationContext();
+            var evaluationContext = new EvaluationContext({fact: fact});
 
             evaluateRuleSets(ruleSetEvaluator, evaluationContext).then(function (evaluationRuleSetResult) {
                 var evaluationResult = _.reduce(evaluationRuleSetResult, function (result, current) {
