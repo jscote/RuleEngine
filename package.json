@@ -1,6 +1,6 @@
 {
-  "name": "jsai-rulenengine",
-  "version": "0.0.1",
+  "name": "jsai-ruleengine",
+  "version": "0.0.2",
   "description": "Sequential Rule Engine",
   "author": {
     "name": "Jean-Sebastien Cote",
