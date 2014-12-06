@@ -242,139 +242,8 @@
 
         process.nextTick(function () {
             var ruleSet;
-            if (ruleSetName == 'SomeTest') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    haltOnException: false,
-                    rules: {
-                        "female": new Rule({
-                            ruleName: 'female',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
 
-                        }),
-                        "female20to40": new Rule({
-                            ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-                        })
-                        /*"blowit": new Rule({
-                         ruleName: 'blowit',
-                         condition: new RuleCondition("throw(Error('Test Error'))")
-
-                         }),*/
-
-                    }
-                });
-            }
-
-            if (ruleSetName == 'SomeTestStopOnFirstTrueRule') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    haltOnFirstTrueRule: true,
-                    rules: {
-                        "female": new Rule({
-                            ruleName: 'female',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-                        }),
-                        "female20to40": new Rule({
-                            ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-                        }),
-                        "married": new Rule({
-                            ruleName: 'maritalStatus',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.martialStatus =='Married'")
-                        })
-
-                    }
-                });
-            }
-
-            if (ruleSetName == 'SomeTestStopOnFirstFalseRule') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    haltOnFirstFalseRule: true,
-                    rules: {
-                        "female": new Rule({
-                                ruleName: 'female',
-                                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-                            }
-                        ),
-                        "married": new Rule({
-                            ruleName: 'maritalStatus',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.martialStatus =='Married'")
-                        }),
-                        "female20to40": new Rule({
-                            ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-                        })
-
-                    }
-                });
-            }
-
-
-            if (ruleSetName == 'SomeTestHaltOnException') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    haltOnException: false,
-                    rules: {
-                        "female": new Rule({
-                            ruleName: 'female',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-                        }),
-                        "blowit": new Rule({
-                            ruleName: 'blowit',
-                            condition: new RuleCondition("throw(Error('Test Error'))")
-
-                        }),
-                        "female20to40": new Rule({
-                            ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-                        })
-
-
-                    }
-                });
-            }
-
-            if (ruleSetName == 'SomeTestDoesNotHaltOnException') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    haltOnException: true,
-                    rules: {
-                        "female": new Rule({
-                            ruleName: 'female',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-                        }),
-                        "blowit": new Rule({
-                            ruleName: 'blowit',
-                            condition: new RuleCondition("throw(Error('Test Error'))")
-
-                        }),
-                        "female20to40": new Rule({
-                            ruleName: 'female20to40',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-                        })
-
-
-                    }
-                });
-            }
-
-            if (ruleSetName == 'SomeOtherTest') {
-                ruleSet = new RuleSet({
-                    ruleSetName: ruleSetName,
-                    rules: {
-                        "female10to50": new Rule({
-                            ruleName: 'female10to50',
-                            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=10 && evaluationContext.fact.age <=50")
-                        })
-                    }
-                });
-            }
+            ruleSet = require(engineConfig.ruleSetPath + '/' + ruleSetName);
 
             dfd.resolve(ruleSet);
         });
@@ -578,6 +447,10 @@
         return dfd.promise;
     };
 
+    var engineConfig = {};
+    RuleEngine.config = function(config) {
+        engineConfig.ruleSetPath = config.ruleSetPath;
+    };
 
 //Exports
     exports.RuleEvaluator = RuleEvaluator;
