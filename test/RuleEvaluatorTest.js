@@ -10,7 +10,7 @@ var ruleEngine = require(p.resolve(__dirname + '/../RuleEvaluator'));
 
 global.Injector = require('jsai-injector');
 
-ruleEngine.RuleEngine.config({ruleSetPath : p.resolve(__dirname + '/../SampleRules/')});
+ruleEngine.RuleEngine.config({ruleSetPath : p.resolve(__dirname + '/../SampleRules/'), rulePath: p.resolve(__dirname + '/../SampleRules/')});
 
 var Person = function (age, gender, maritalStatus) {
     this.age = age;

@@ -243,7 +243,7 @@
 
             ruleSet = require(engineConfig.ruleSetPath + '/' + ruleSetName);
             for(var r in ruleSet.rules) {
-                ruleSet.rules[r] = require(engineConfig.ruleSetPath + '/' + r);
+                ruleSet.rules[r] = require(engineConfig.rulePath + '/' + r);
                 ruleSet.rules[r].internalName = r;
             }
 
@@ -413,6 +413,7 @@
     var engineConfig = {};
     RuleEngine.config = function(config) {
         engineConfig.ruleSetPath = config.ruleSetPath;
+        engineConfig.rulePath = config.rulePath;
     };
 
 //Exports
