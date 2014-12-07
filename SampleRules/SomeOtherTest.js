@@ -8,10 +8,7 @@ var p = require('path');
     module.exports = new RuleSet({
         ruleSetName: 'SomeOtherTest',
         rules: {
-            "female10to50": new Rule({
-                ruleName: 'female10to50',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=10 && evaluationContext.fact.age <=50")
-            })
+            "female10to50": {}
         }
     });
 

@@ -10,19 +10,9 @@ var p = require('path');
         ruleSetName: 'SomeTestStopOnFirstTrueRule',
         haltOnFirstTrueRule: true,
         rules: {
-            "female": new Rule({
-                ruleName: 'female',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-            }),
-            "female20to40": new Rule({
-                ruleName: 'female20to40',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-            }),
-            "married": new Rule({
-                ruleName: 'maritalStatus',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.martialStatus =='Married'")
-            })
+            "female": {},
+            "female20to40": {},
+            "married": {}
 
         }
     });

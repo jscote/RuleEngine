@@ -51,8 +51,6 @@
         for (var prop in this.ruleSet.rules) {
             this.addRule(this.ruleSet.rules[prop]);
         }
-        //    this.ruleSet.rules[prop].ruleName = this.ruleSet.ruleSetName + '_' + this.ruleSet.rules[prop].ruleName;
-        // }
 
         this.haltOnException = _ruleSet.haltOnException;
         this.haltOnFirstFalseRule = _ruleSet.haltOnFirstFalseRule;
@@ -244,6 +242,10 @@
             var ruleSet;
 
             ruleSet = require(engineConfig.ruleSetPath + '/' + ruleSetName);
+            for(var r in ruleSet.rules) {
+                ruleSet.rules[r] = require(engineConfig.ruleSetPath + '/' + r);
+                ruleSet.rules[r].internalName = r;
+            }
 
             dfd.resolve(ruleSet);
         });
@@ -260,7 +262,8 @@
     RuleSetCache.add = function (ruleSetName, ruleSet) {
 
         for (var prop in ruleSet.rules) {
-            ruleSet.rules[prop].ruleName = ruleSet.ruleSetName + '_' + ruleSet.rules[prop].ruleName;
+
+            ruleSet.rules[prop].ruleName = ruleSet.ruleSetName + '_' + ruleSet.rules[prop].internalName;
         }
         cache[ruleSetName] = ruleSet;
     };
@@ -324,46 +327,6 @@
     RuleSetResolver.prototype.parseRuleSetDefinition = function (ruleSetDefinition) {
         return ruleSetDefinition;
 
-        if (_.isUndefined(ruleSetDefinition) || !ruleSetDefinition) {
-            throw Error("Rule Set definition is not provided");
-        }
-
-        var materializedDefinition = {};
-
-        function internalParse(innerDefinition) {
-            var nodeType = '';
-            var parameters = null;
-            var inner = {};
-
-            for (var prop in innerDefinition) {
-
-                if (prop == 'nodeType') {
-                    nodeType = innerDefinition[prop];
-                } else if (prop == 'parameters') {
-                    parameters = innerDefinition[prop];
-                    if (!_.isUndefined(parameters)) {
-                        for (var paramProp in parameters) {
-                            if (paramProp == 'condition') {
-                                inner[paramProp] = parameters[paramProp];
-                            } else {
-                                inner[paramProp] = internalParse(parameters[paramProp]);
-                            }
-                        }
-                    }
-                } else {
-                    return innerDefinition[prop];
-                }
-
-
-            }
-            return;
-            //TODO Reparse this correctly
-            //return NodeFactory.create(nodeType, inner);
-        }
-
-        materializedDefinition = internalParse(ruleSetDefinition);
-
-        return materializedDefinition;
     };
 
     RuleSetResolver.prototype.addToCache = function (ruleSetName, ruleSetDefinition) {

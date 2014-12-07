@@ -9,20 +9,9 @@ var p = require('path');
         ruleSetName: 'SomeTestHaltOnException',
         haltOnException: false,
         rules: {
-            "female": new Rule({
-                ruleName: 'female',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M'")
-
-            }),
-            "blowit": new Rule({
-                ruleName: 'blowit',
-                condition: new RuleCondition("throw(Error('Test Error'))")
-
-            }),
-            "female20to40": new Rule({
-                ruleName: 'female20to40',
-                condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
-            })
+            "female": {},
+            "blowit": {},
+            "female20to40": {}
         }
     });
 

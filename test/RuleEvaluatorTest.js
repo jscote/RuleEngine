@@ -103,9 +103,9 @@ module.exports = {
                 test.ok(result.evaluationContext.isTrue('SomeTestStopOnFirstFalseRule_female20to40'));
             });
 
-            test.ok(result.evaluationContext.isEvaluated('SomeTestStopOnFirstFalseRule_maritalStatus'), 'SomeTestStopOnFirstTrueRule_maritalStatus should be evaluated');
+            test.ok(result.evaluationContext.isEvaluated('SomeTestStopOnFirstFalseRule_married'), 'SomeTestStopOnFirstTrueRule_maritalStatus should be evaluated');
             //test.throws(function () {
-                test.ok(!result.evaluationContext.isTrue('SomeTestStopOnFirstFalseRule_maritalStatus'));
+                test.ok(!result.evaluationContext.isTrue('SomeTestStopOnFirstFalseRule_married'));
             //});
 
             test.ok(result.evaluationContext.isEvaluated('SomeOtherTest_female10to50'), 'SomeOtherTest_female10to50 should be evaluated');
