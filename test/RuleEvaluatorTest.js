@@ -10,7 +10,10 @@ var ruleEngine = require(p.resolve(__dirname + '/../RuleEvaluator'));
 
 global.Injector = require('jsai-injector');
 
-ruleEngine.RuleEngine.config({ruleSetPath : p.resolve(__dirname + '/../SampleRules/'), rulePath: p.resolve(__dirname + '/../SampleRules/')});
+ruleEngine.RuleEngine.config({
+    ruleSetPath: p.resolve(__dirname + '/../SampleRules/'),
+    rulePath: p.resolve(__dirname + '/../SampleRules/')
+});
 
 var Person = function (age, gender, maritalStatus) {
     this.age = age;
@@ -105,7 +108,7 @@ module.exports = {
 
             test.ok(result.evaluationContext.isEvaluated('SomeTestStopOnFirstFalseRule_married'), 'SomeTestStopOnFirstTrueRule_maritalStatus should be evaluated');
             //test.throws(function () {
-                test.ok(!result.evaluationContext.isTrue('SomeTestStopOnFirstFalseRule_married'));
+            test.ok(!result.evaluationContext.isTrue('SomeTestStopOnFirstFalseRule_married'));
             //});
 
             test.ok(result.evaluationContext.isEvaluated('SomeOtherTest_female10to50'), 'SomeOtherTest_female10to50 should be evaluated');
@@ -115,7 +118,21 @@ module.exports = {
             test.done();
         });
 
+    },
+    testLoadInvalidRuleSets: function (test) {
+        var ruleEngine = Injector.resolve({target: 'ruleEngine'});
+
+        test.ok(ruleEngine);
+
+        ruleEngine.evaluate(new Person(30, 'F', 'Single'), ['blah']).then(function (result) {
+            test.ok(false, "should not pass");
+            test.done();
+
+        }).fail(function (error) {
+                test.ok(true, "should generate a failure");
+                test.done();
+            }
+        );
+
     }
-
-
 };

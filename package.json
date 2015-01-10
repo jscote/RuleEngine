@@ -6,6 +6,7 @@
     "name": "Jean-Sebastien Cote",
     "email": "jean.sebastien.cote@gmail.com"
   },
+  "main" : "RuleEvaluator",
   "dependencies": {
     "jsai-injector": "0.0.2",
     "lodash": "^2.4.1",

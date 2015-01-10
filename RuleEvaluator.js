@@ -241,10 +241,21 @@
         process.nextTick(function () {
             var ruleSet;
 
-            ruleSet = require(engineConfig.ruleSetPath + '/' + ruleSetName);
-            for(var r in ruleSet.rules) {
-                ruleSet.rules[r] = require(engineConfig.rulePath + '/' + r);
-                ruleSet.rules[r].internalName = r;
+            try {
+                ruleSet = require(engineConfig.ruleSetPath + '/' + ruleSetName);
+
+            } catch (error) {
+                dfd.reject("Unable to load ruleSet");
+                return;
+            }
+            try {
+                for (var r in ruleSet.rules) {
+                    ruleSet.rules[r] = require(engineConfig.rulePath + '/' + r);
+                    ruleSet.rules[r].internalName = r;
+                }
+            } catch (error) {
+                dfd.reject("Unable to load rules");
+                return;
             }
 
             dfd.resolve(ruleSet);
@@ -312,6 +323,8 @@
 
                     self.addToCache(ruleSetName, parsedRuleSet);
                     dfd.resolve(parsedRuleSet);
+                }).fail(function (error) {
+                    dfd.resolve(error)
                 });
 
             } else {
@@ -402,16 +415,23 @@
                     return {isTrue: isTrue}
                 });
                 dfd.resolve({isTrue: evaluationResult.isTrue, evaluationContext: evaluationContext});
+            }).fail(function(error){
+                evaluationContext.brokenRules.push(error);
+                dfd.resolve({isTrue: false, evaluationContext: evaluationContext});
+                return;
             });
 
 
+        }).fail(function(error){
+            dfd.reject(error);
+            return;
         });
 
         return dfd.promise;
     };
 
     var engineConfig = {};
-    RuleEngine.config = function(config) {
+    RuleEngine.config = function (config) {
         engineConfig.ruleSetPath = config.ruleSetPath;
         engineConfig.rulePath = config.rulePath;
     };
