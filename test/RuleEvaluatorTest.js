@@ -134,5 +134,25 @@ module.exports = {
             }
         );
 
+    },
+    testRuleEngineWithFunctionForRuleCondition: function (test) {
+
+
+        var ruleEngine = Injector.resolve({target: 'ruleEngine'});
+
+        test.ok(ruleEngine);
+
+        ruleEngine.evaluate(new Person(30, 'F', 'Single'), ['SomeTestWithFunctionAsCondition', 'SomeOtherTest']).then(function (result) {
+            test.ok(result.isTrue);
+            test.ok(result.evaluationContext.isEvaluated('SomeTestWithFunctionAsCondition_functionCondition'), 'SomeTestWithFunctionAsCondition_functionCondition should be evaluated');
+            test.ok(result.evaluationContext.isTrue('SomeTestWithFunctionAsCondition_functionCondition'), 'SomeTestWithFunctionAsCondition_functionCondition should be true');
+
+            test.ok(result.evaluationContext.isEvaluated('SomeOtherTest_female10to50'), 'SomeOtherTest_female10to50 should be evaluated');
+            test.ok(result.evaluationContext.isTrue('SomeOtherTest_female10to50'));
+
+
+            test.done();
+        });
+
     }
 };

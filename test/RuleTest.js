@@ -3,6 +3,7 @@
  */
 
 var p = require('path');
+var q = require('q');
 
 //var Predicate = require(p.resolve(__dirname + '../../../server/Predicate/Predicate/')).Predicate;
 //var predicateFactory = require(p.resolve(__dirname + '../../../server/Predicate/Predicate/')).predicateFactory;
@@ -132,5 +133,32 @@ module.exports = {
         });
 
 
+    },
+    rule_withFunctionForRuleCondition_evaluatesToTrue : function(test) {
+
+        var Person = function (age, gender) {
+            this.age = age;
+            this.gender = gender;
+        };
+
+        var fCondition = function(evalContext) {
+            var dfd = q.defer();
+
+            process.nextTick(function(){
+                dfd.resolve({isTrue : evalContext.fact.gender != 'M'});
+            });
+
+            return dfd.promise;
+        };
+
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition(fCondition)});
+
+        var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
+
+        r.evaluateCondition(evalCtx).then(function(result){
+            test.ok(evalCtx.isTrue(r.ruleName));
+            test.ok(result);
+            test.done();
+        });
     }
 };

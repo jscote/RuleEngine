@@ -2,7 +2,7 @@
 
     'use strict';
 
-    var EvaluationContext = function(options) {
+    var EvaluationContext = function (options) {
         options = options || {};
         this.ruleStates = {};
 
@@ -11,26 +11,26 @@
         Object.defineProperty(this, "fact", {writable: true, enumerable: true, value: options.fact || null});
     };
 
-    EvaluationContext.prototype.isEvaluated = function(ruleName) {
-        if(_.isUndefined(this.ruleStates[ruleName])) return false;
+    EvaluationContext.prototype.isEvaluated = function (ruleName) {
+        if (_.isUndefined(this.ruleStates[ruleName])) return false;
 
         return this.ruleStates[ruleName].isEvaluated;
     };
 
-    EvaluationContext.prototype.isTrue = function(ruleName) {
-        if(_.isUndefined(this.ruleStates[ruleName])) throw Error("Rule state is unavailable.");
+    EvaluationContext.prototype.isTrue = function (ruleName) {
+        if (_.isUndefined(this.ruleStates[ruleName])) throw Error("Rule state is unavailable.");
 
         return this.ruleStates[ruleName].isTrue;
     };
 
-    EvaluationContext.prototype.setIsTrue = function(ruleName, isTrue) {
-        if(_.isUndefined(this.ruleStates[ruleName])) this.ruleStates[ruleName] = new RuleState();
+    EvaluationContext.prototype.setIsTrue = function (ruleName, isTrue) {
+        if (_.isUndefined(this.ruleStates[ruleName])) this.ruleStates[ruleName] = new RuleState();
         this.ruleStates[ruleName].isTrue = isTrue;
 
-        if(this.isValid) this.isValid = isTrue;
+        if (this.isValid) this.isValid = isTrue;
     };
 
-    var RuleState = function() {
+    var RuleState = function () {
         var _isTrue = false;
         var self = this;
         Object.defineProperty(this, "isEvaluated", {value: false, writable: true, enumerable: true});
@@ -98,13 +98,13 @@
         if (this.condition) {
             this.condition.evaluateCondition(evaluationContext).then(function (result) {
                 evaluationContext.setIsTrue(self.ruleName, result);
-                dfd.resolve({isTrue: result, ruleState : evaluationContext.ruleStates[self.ruleName]});
-            }, function(error) {
+                dfd.resolve({isTrue: result, ruleState: evaluationContext.ruleStates[self.ruleName]});
+            }, function (error) {
                 dfd.reject(error);
             });
         } else {
             evaluationContext.ruleStates[self.ruleName].isTrue = true;
-            dfd.resolve({isTrue: true, ruleState : evaluationContext.ruleStates[self.ruleName]});
+            dfd.resolve({isTrue: true, ruleState: evaluationContext.ruleStates[self.ruleName]});
         }
 
         return dfd.promise;
@@ -114,11 +114,11 @@
 
         var _predicate;
         Object.defineProperty(this, "predicate", {
-            get : function (){
+            get: function () {
                 return _predicate;
             },
-            set: function(value) {
-                if(_.isUndefined(value) || _.isNull(value)) {
+            set: function (value) {
+                if (_.isUndefined(value) || _.isNull(value)) {
                     throw Error('A predicate must be provided');
                 }
                 _predicate = value;
@@ -135,13 +135,20 @@
         var self = this;
 
         var dfd = q.defer();
-        process.nextTick(function(){
+        process.nextTick(function () {
             try {
-                var sandbox = {isTrue: false, evaluationContext: evaluationContext};
-                var context = vm.createContext(sandbox);
-                vm.runInContext(self.predicate, context);
-                dfd.resolve(context.isTrue);
-            } catch(e) {
+
+                if (_.isFunction(self.predicate)) {
+                    q.fcall(self.predicate.bind(self), evaluationContext).then(function(result) {
+                        dfd.resolve(result.isTrue);
+                    });
+                } else {
+                    var sandbox = {isTrue: false, evaluationContext: evaluationContext};
+                    var context = vm.createContext(sandbox);
+                    vm.runInContext(self.predicate, context);
+                    dfd.resolve(context.isTrue);
+                }
+            } catch (e) {
                 dfd.reject(e);
             }
         });
