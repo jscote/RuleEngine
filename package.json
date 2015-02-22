@@ -1,16 +1,16 @@
 {
   "name": "jsai-ruleengine",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Sequential Rule Engine",
   "author": {
     "name": "Jean-Sebastien Cote",
     "email": "jean.sebastien.cote@gmail.com"
   },
-  "main" : "RuleEvaluator",
+  "main": "RuleEvaluator",
   "dependencies": {
-    "jsai-injector": "0.0.2",
-    "lodash": "^2.4.1",
-    "q": "^1.1.2"
+    "jsai-injector": "0.0.3",
+    "lodash": "^3.3.0",
+    "q": "^1.2.0"
   },
   "repository": {
     "type": "git",
