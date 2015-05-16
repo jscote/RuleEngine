@@ -12,6 +12,7 @@ var q = require('q');
 var Rule = require(p.resolve(__dirname + '/../Rule')).Rule;
 var RuleCondition = require(p.resolve(__dirname + '/../Rule')).RuleCondition;
 var EvaluationContext = require(p.resolve(__dirname + '/../Rule')).EvaluationContext;
+var Argument = require('jsai-contract').Argument;
 
 module.exports = {
     setUp: function (callback) {
@@ -55,7 +56,7 @@ module.exports = {
     testRuleConditionMustHaveAPredicateThatIsEvaluated: function (test) {
         var c = new RuleCondition('isTrue = evaluationContext.value;');
 
-        c.evaluateCondition({value: true}).then(function(result){
+        c.evaluateCondition({value: true}).then(function (result) {
             test.ok(result);
             test.done();
         });
@@ -73,7 +74,7 @@ module.exports = {
 
         var evaluationContext = new EvaluationContext({fact: new Person(30, 'F')});
 
-        c.evaluateCondition(evaluationContext).then(function(result) {
+        c.evaluateCondition(evaluationContext).then(function (result) {
             test.ok(result);
             test.done();
         });
@@ -88,7 +89,7 @@ module.exports = {
 
         var evaluationContext = new EvaluationContext({fact: new Person(30, 'M')});
 
-        c.evaluateCondition(evaluationContext).then(function(result) {
+        c.evaluateCondition(evaluationContext).then(function (result) {
             test.ok(!result);
             test.done();
         });
@@ -101,13 +102,16 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")});
+        var r = new Rule({
+            ruleName: 'test',
+            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
+        });
 
         var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
 
         test.ok(!evalCtx.isEvaluated(r.ruleName), 'is not evaluated yet');
 
-        r.evaluateCondition(evalCtx).then(function(result){
+        r.evaluateCondition(evalCtx).then(function (result) {
             test.ok(evalCtx.isEvaluated(r.ruleName), 'has been evaluated');
             test.ok(result);
             test.done();
@@ -122,11 +126,14 @@ module.exports = {
         };
 
 
-        var r = new Rule({ruleName: 'test', condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")});
+        var r = new Rule({
+            ruleName: 'test',
+            condition: new RuleCondition("isTrue = evaluationContext.fact.gender !='M' && evaluationContext.fact.age >=20 && evaluationContext.fact.age <=40")
+        });
 
         var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
 
-        r.evaluateCondition(evalCtx).then(function(result){
+        r.evaluateCondition(evalCtx).then(function (result) {
             test.ok(evalCtx.isTrue(r.ruleName));
             test.ok(result);
             test.done();
@@ -134,18 +141,18 @@ module.exports = {
 
 
     },
-    rule_withFunctionForRuleCondition_evaluatesToTrue : function(test) {
+    rule_withFunctionForRuleCondition_evaluatesToTrue: function (test) {
 
         var Person = function (age, gender) {
             this.age = age;
             this.gender = gender;
         };
 
-        var fCondition = function(evalContext) {
+        var fCondition = function (evalContext) {
             var dfd = q.defer();
 
-            process.nextTick(function(){
-                dfd.resolve({isTrue : evalContext.fact.gender != 'M'});
+            process.nextTick(function () {
+                dfd.resolve({isTrue: evalContext.fact.gender != 'M'});
             });
 
             return dfd.promise;
@@ -155,10 +162,43 @@ module.exports = {
 
         var evalCtx = new EvaluationContext({fact: new Person(30, 'F')});
 
-        r.evaluateCondition(evalCtx).then(function(result){
+        r.evaluateCondition(evalCtx).then(function (result) {
             test.ok(evalCtx.isTrue(r.ruleName));
             test.ok(result);
             test.done();
         });
+    },
+    rule_withPredicateParameterButNoContract_canBeInstantiate: function (test) {
+        var fCondition = function (evalContext) {
+            var dfd = q.defer();
+
+            process.nextTick(function () {
+                dfd.resolve({isTrue: true});
+            });
+
+            return dfd.promise;
+        };
+
+        var r = new Rule({ruleName: 'test', condition: new RuleCondition({predicate: fCondition})});
+
+        test.done();
+    },
+    rule_withPredicateParameterAndContract_canBeInstantiate: function (test) {
+        var fCondition = function (evalContext) {
+            var dfd = q.defer();
+
+            process.nextTick(function () {
+                dfd.resolve({isTrue: true});
+            });
+
+            return dfd.promise;
+        };
+
+        var r = new Rule({
+            ruleName: 'test',
+            condition: new RuleCondition({predicate: fCondition, contract: [{name: "something", direction: Argument.Direction.in}]})
+        });
+
+        test.done();
     }
 };

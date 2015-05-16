@@ -1,4 +1,4 @@
-﻿(function (util, _, q, vm) {
+﻿(function (util, _, q, vm, contract) {
 
     'use strict';
 
@@ -110,7 +110,7 @@
         return dfd.promise;
     };
 
-    var RuleCondition = function RuleCondition(predicate) {
+    var RuleCondition = function RuleCondition(parameters) {
 
         var _predicate;
         Object.defineProperty(this, "predicate", {
@@ -125,7 +125,36 @@
             }
         });
 
-        this.predicate = predicate;
+        var _contract;
+        Object.defineProperty(this, "contract", {
+            get: function () {
+                return _contract;
+            },
+            set: function (value) {
+                if (!(value instanceof contract.Contract)) {
+                    if (_.isArray(value)) {
+                        _contract = new contract.Contract(value);
+                    } else {
+                        throw Error("Contract is not a valid type")
+                    }
+                } else {
+                    _contract = value;
+                }
+            }
+        });
+
+        if (_.isString(parameters)) {
+            this.predicate = parameters;
+        } else {
+            if (_.isUndefined(parameters.predicate)) {
+                this.predicate = parameters;
+            } else {
+                this.predicate = parameters.predicate;
+                if (!_.isUndefined(parameters.contract))
+                    this.contract = parameters.contract;
+            }
+        }
+
 
         return this;
     };
@@ -139,7 +168,7 @@
             try {
 
                 if (_.isFunction(self.predicate)) {
-                    q.fcall(self.predicate.bind(self), evaluationContext).then(function(result) {
+                    q.fcall(self.predicate.bind(self), evaluationContext).then(function (result) {
                         dfd.resolve(result.isTrue);
                     });
                 } else {
@@ -168,5 +197,6 @@
     //require('../Predicate/Predicate').Predicate,
     require('lodash'),
     require('q'),
-    require('vm')
+    require('vm'),
+    require('jsai-contract')
 );

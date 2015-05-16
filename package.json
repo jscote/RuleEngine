@@ -1,6 +1,6 @@
 {
   "name": "jsai-ruleengine",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Sequential Rule Engine",
   "author": {
     "name": "Jean-Sebastien Cote",
@@ -8,6 +8,7 @@
   },
   "main": "RuleEvaluator",
   "dependencies": {
+    "jsai-contract": "0.0.24",
     "jsai-injector": "0.0.3",
     "lodash": "^3.3.0",
     "q": "^1.2.0"
