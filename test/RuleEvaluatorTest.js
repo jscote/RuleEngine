@@ -154,5 +154,23 @@ module.exports = {
             test.done();
         });
 
+    },
+    evaluate_withMaps_WillSucceed: function (test) {
+
+
+        var ruleEngine = Injector.resolve({target: 'ruleEngine'});
+
+        test.ok(ruleEngine);
+
+        ruleEngine.evaluate(new Person(30, 'F', 'Single'), ['FunctionRuleSetWithContractAndMaps'],
+            {FunctionRuleSetWithContractAndMaps_Rule1WithMap: {"gender": "gender"}}, {FunctionRuleSetWithContractAndMaps_Rule1WithMap: {"genderOut": "gender"}}).then(function (result) {
+                test.ok(result.isTrue, 'Expect success');
+                test.ok(result.evaluationContext.isEvaluated('FunctionRuleSetWithContractAndMaps_Rule1WithMap'), 'FunctionRuleSetWithContractAndMaps_Rule1WithMap should be evaluated');
+                test.ok(result.evaluationContext.isTrue('FunctionRuleSetWithContractAndMaps_Rule1WithMap'), 'FunctionRuleSetWithContractAndMaps_Rule1WithMap should be true');
+
+
+                test.done();
+            });
+
     }
 };

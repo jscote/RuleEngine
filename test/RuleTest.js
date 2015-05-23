@@ -196,8 +196,34 @@ module.exports = {
 
         var r = new Rule({
             ruleName: 'test',
-            condition: new RuleCondition({predicate: fCondition, contract: [{name: "something", direction: Argument.Direction.in}]})
+            condition: new RuleCondition({
+                predicate: fCondition,
+                contract: [{name: "something", direction: Argument.Direction.in}]
+            })
         });
+
+        test.done();
+    },
+    ruleInitializeMap_withPredicateParameterAndContract_isSuccessful: function (test) {
+        var fCondition = function (evalContext) {
+            var dfd = q.defer();
+
+            process.nextTick(function () {
+                dfd.resolve({isTrue: true});
+            });
+
+            return dfd.promise;
+        };
+
+        var r = new Rule({
+            ruleName: 'test',
+            condition: new RuleCondition({
+                predicate: fCondition,
+                contract: [{name: "something", direction: Argument.Direction.in}]
+            })
+        });
+
+        r.initializeMap({mapIn: {"data.person" : "person"}, mapOut: {"person": "data.person"}});
 
         test.done();
     }

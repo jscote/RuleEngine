@@ -1,4 +1,4 @@
-﻿(function (util, _, q, vm, contract) {
+﻿(function (util, _, q, vm, contract, mapper) {
 
     'use strict';
 
@@ -90,6 +90,10 @@
         return this;
     };
 
+    Rule.prototype.initializeMap = function(maps){
+        this.condition.initializeMap(maps);
+    };
+
     Rule.prototype.evaluateCondition = function (evaluationContext) {
 
         var self = this;
@@ -143,6 +147,9 @@
             }
         });
 
+        Object.defineProperty(this, "mapIn", {enumerable: true, writable: true});
+        Object.defineProperty(this, "mapOut", {enumerable: true, writable: true});
+
         if (_.isString(parameters)) {
             this.predicate = parameters;
         } else {
@@ -152,11 +159,36 @@
                 this.predicate = parameters.predicate;
                 if (!_.isUndefined(parameters.contract))
                     this.contract = parameters.contract;
+
             }
+
         }
 
 
         return this;
+    };
+
+    RuleCondition.prototype.initializeMap = function(parameters){
+        if (!_.isUndefined(parameters.mapIn)) {
+            //let's rewrite the map for the in part.
+            var newInMap = {};
+            for (var prop in parameters.mapIn) {
+                (function (property) {
+                    newInMap[property] = {
+                        key: parameters.mapIn[property], transform: function (value, objfrom, objTo) {
+                            objTo.set(parameters.mapIn[property], value);
+                            return objTo.getArgumentObject(parameters.mapIn[property]);
+                        }
+                    }
+                })(prop);
+            }
+            this.mapIn = newInMap;
+        }
+
+        if (!_.isUndefined(parameters.mapOut)) {
+            this.mapOut = parameters.mapOut;
+        }
+
     };
 
     RuleCondition.prototype.evaluateCondition = function (evaluationContext) {
@@ -167,8 +199,22 @@
         process.nextTick(function () {
             try {
 
+                var args = null;
+                if (!_.isUndefined(self.contract)) {
+                    args = self.contract.createArguments();
+                }
+
+                if (!_.isUndefined(self.mapIn)) {
+                    mapper.merge(evaluationContext.fact, args.in, self.mapIn);
+                }
+
                 if (_.isFunction(self.predicate)) {
-                    q.fcall(self.predicate.bind(self), evaluationContext).then(function (result) {
+                    q.fcall(self.predicate.bind(self), evaluationContext, args).then(function (result) {
+
+                        if (!_.isUndefined(self.mapOut)) {
+                            mapper.merge(args.out.flatten(), evaluationContext.fact, self.mapOut);
+                        }
+
                         dfd.resolve(result.isTrue);
                     });
                 } else {
@@ -198,5 +244,6 @@
     require('lodash'),
     require('q'),
     require('vm'),
-    require('jsai-contract')
+    require('jsai-contract'),
+    require('object-mapper')
 );

@@ -1,8 +1,4 @@
-﻿//TODO : Consider ordering of rules and rulesets.
-//TODO : Integrate RuleEngine with Condition on Processors
-//TODO : Flatten the fact to pass it in the evaluation context when coming from processors => processor has context and context has data. The data part should become part of the fact
-//TODO : Change BrokenRule Concept to be only for containing rules that have exceptions, potentially moving that as well to the evaluation context.
-//TODO : Consider which "require" modules should be passed to the vm.context so that condition can be evaluated easily. JSONPath might be an interesting one, potentially inject a module that does nothing for now but that can be replaced by whatever we want at runtime (such as persistence)
+﻿//TODO : Consider which "require" modules should be passed to the vm.context so that condition can be evaluated easily. JSONPath might be an interesting one, potentially inject a module that does nothing for now but that can be replaced by whatever we want at runtime (such as persistence)
 
 (function (_, util, Rule, RuleCondition, EvaluationContext, EventEmitter, q, Injector) {
 
@@ -235,7 +231,7 @@
 
     }
 
-    RuleSetLoader.prototype.load = function (ruleSetName) {
+    RuleSetLoader.prototype.load = function (ruleSetName, mapIns, mapOuts) {
         var dfd = q.defer();
 
         process.nextTick(function () {
@@ -252,6 +248,12 @@
                 for (var r in ruleSet.rules) {
                     ruleSet.rules[r] = require(engineConfig.rulePath + '/' + r);
                     ruleSet.rules[r].internalName = r;
+                    if (!_.isUndefined(ruleSet.rules[r].initializeMap) && !_.isUndefined(mapIns) && !_.isUndefined(mapOuts)) {
+                        ruleSet.rules[r].initializeMap({
+                            mapIn: mapIns[ruleSetName + '_' + r],
+                            mapOut: mapOuts[ruleSetName + '_' + r]
+                        });
+                    }
                 }
             } catch (error) {
                 dfd.reject("Unable to load rules");
@@ -309,7 +311,7 @@
     }
 
 
-    RuleSetResolver.prototype.load = function (ruleSetName) {
+    RuleSetResolver.prototype.load = function (ruleSetName, mapIns, mapOuts) {
 
         var dfd = q.defer();
         var self = this;
@@ -318,7 +320,7 @@
             var parsedRuleSet = self.getFromCache(ruleSetName);
 
             if (parsedRuleSet == null) {
-                self.ruleSetLoader.load(ruleSetName).then(function (ruleSetDefinition) {
+                self.ruleSetLoader.load(ruleSetName, mapIns, mapOuts).then(function (ruleSetDefinition) {
                     parsedRuleSet = self.parseRuleSetDefinition(ruleSetDefinition);
 
                     self.addToCache(ruleSetName, parsedRuleSet);
@@ -369,7 +371,7 @@
         this.ruleSetResolver = ruleSetResolver;
     }
 
-    RuleEngine.prototype.evaluate = function (fact, ruleSetNames) {
+    RuleEngine.prototype.evaluate = function (fact, ruleSetNames, mapIns, mapOuts) {
         //ruleSetNames can be an array of names of rule set to load or a simple single name of a rule set to evaluate
 
         var arrRuleSetNames = [];
@@ -388,7 +390,7 @@
 
         function initializeRuleSets(arr, iteratorFunc, binder) {
             var promises = _.map(arr, function (item) {
-                return iteratorFunc.call(binder, item);
+                return iteratorFunc.call(binder, item, mapIns, mapOuts);
             });
 
             return q.all(promises);
@@ -415,14 +417,14 @@
                     return {isTrue: isTrue}
                 });
                 dfd.resolve({isTrue: evaluationResult.isTrue, evaluationContext: evaluationContext});
-            }).fail(function(error){
+            }).fail(function (error) {
                 evaluationContext.brokenRules.push(error);
                 dfd.resolve({isTrue: false, evaluationContext: evaluationContext});
                 return;
             });
 
 
-        }).fail(function(error){
+        }).fail(function (error) {
             dfd.reject(error);
             return;
         });
