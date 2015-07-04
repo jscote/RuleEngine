@@ -170,19 +170,7 @@
 
     RuleCondition.prototype.initializeMap = function(parameters){
         if (!_.isUndefined(parameters.mapIn)) {
-            //let's rewrite the map for the in part.
-            var newInMap = {};
-            for (var prop in parameters.mapIn) {
-                (function (property) {
-                    newInMap[property] = {
-                        key: parameters.mapIn[property], transform: function (value, objfrom, objTo) {
-                            objTo.set(parameters.mapIn[property], value);
-                            return objTo.getArgumentObject(parameters.mapIn[property]);
-                        }
-                    }
-                })(prop);
-            }
-            this.mapIn = newInMap;
+            this.mapIn = contract.Contract.createMap(parameters.mapIn);
         }
 
         if (!_.isUndefined(parameters.mapOut)) {
